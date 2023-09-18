@@ -27,20 +27,20 @@ import sys
 import subprocess
 import traceback
 import json
-import time
 
 
 try:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q", "pip", "--upgrade"], shell= True)
 except subprocess.CalledProcessError: pass
+
 REQUIRE = ["discord.py", "asyncio", "nest_asyncio", "dice",
            "cloud-sql-python-connector[pymysql]", "sqlalchemy", "pymysql"]
+
 for package in REQUIRE:
     print(f"Checking and installing '{package}'")
     try:
         subprocess.run([sys.executable, "pip", "install", "-q", package], shell= True)
     except subprocess.CalledProcessError: pass
-    except FileNotFoundError: pass
 
 
 import discord as DSC
@@ -84,12 +84,25 @@ def del_i() -> None:
         else: i += 1
 
 
-CRED_FILE = f"{os.path.dirname(os.path.realpath(__file__))}\\credentials.txt"
-with open(CRED_FILE) as F:
-    vars = ["HOST", "USER", "PASSWORD", "DATABASE", "TOKEN"]
-    for i in vars:
-        exec(f"{i} = {F.readline()}")
-del_env("CRED_FILE")
+def local_path():
+    return os.path.dirname(os.path.realpath(__file__))
+
+
+def with_creds(creds: dict):
+    def decorator(func: callable) -> callable:
+        def wrapper(*args, **kwargs) -> any:
+            cred_file = f"{local_path()}\\credentials.txt"
+            local_creds = {}
+            with open(cred_file) as F:
+                lines = F.readlines()
+            for i,j in list(creds.items()):
+                local_creds[i] = lines[j].removesuffix("\n")
+            kwargs.update(local_creds)
+            result = func(*args, **kwargs)
+            del_env(["cred_file", "creds", "local_creds", "lines"])
+            return result
+        return wrapper
+    return decorator
 
 
 
@@ -115,7 +128,6 @@ BOT = CMDS.Bot(command_prefix = PREFIX,
               )
 
 
-
 ##########################################################################
 # SQL SETUP
 ##########################################################################
@@ -123,23 +135,64 @@ BOT = CMDS.Bot(command_prefix = PREFIX,
 
 
 connector = CON()
-def getconn() -> SQL.connections.Connection:
+@with_creds({"HOST": 0, "USER": 1, "PASSWORD": 2, "DATABASE": 3})
+def getconn(HOST, USER, PASSWORD, DATABASE) -> SQL.connections.Connection:
     conn: SQL.connections.Connection = connector.connect(
         HOST, "pymysql", user = USER, password = PASSWORD, db = DATABASE)
     return conn
 
 
 DB = ALC.create_engine("mysql+pymysql://", creator = getconn,)
-del_env(["HOST", "USER", "PASSWORD", "DATABASE"])
 
 
-def sql(txt: str) -> any:
+def sql(query: str, params: dict = None, multiple: bool = False) -> any:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = f"{local_path()}\\ADC.json"
     with DB.connect() as db_conn:
-        result = db_conn.execute(ALC.text(txt))
+        if params:
+            result = db_conn.execute(ALC.text(query), params)
+        else:
+            result = db_conn.execute(ALC.text(query))
         db_conn.commit()
-    if result is not None:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "HIDDEN"
+    if multiple:
         result = result.fetchall()
+    else:
+        result = result.fetchone()
+    return result
+
+
+S_CACHE = {0: {"paths": {}, "fields": [], "params": {}, "perms": {}}}
+
+
+def innit_guild(guild: int) -> None:
+    S_CACHE[guild] = S_CACHE[0].copy()
+
+
+def get_guild_sql(guild: int) -> dict:
+    query = list(sql("select * from SERVERS where s_id = :s_id", {"s_id": guild}))
+    if query:
+        del query[0]
+        columns = ["paths", "fields", "params", "perms"]
+        result = {guild: {}}
+        for i in range(len(columns)):
+            result[guild][columns[i]] = json.loads(query[i])
         return result
+    return False
+        
+
+def set_guild_sql(guild: int, cache: dict) -> bool:
+    columns = ["paths", "fields", "params", "perms"]
+    parameters = {i: json.dumps(cache[i]) for i in columns}
+    parameters["s_id"] = guild
+    if get_guild_sql(guild):
+        sql("update SERVERS set paths = :paths, fields = :fields," \
+            + "params = :params, perms = :perms where s_id = :s_id", parameters)
+        return True
+    else:
+        sql("insert into SERVERS (s_id, paths, fields, params, perms) values" \
+            + "(:s_id, :paths, :fields, :params, :perms)", parameters)
+        return False
+
 
 
 
@@ -147,10 +200,6 @@ def sql(txt: str) -> any:
 # GLOBALS AND METHODS
 ##########################################################################
 
-
-
-# Blank server entry for replicating and default parameters.
-TEMPLATE={'Keys': {}, 'Items': [], 'Players': {}, 'Paths': {},'Params': {'AllowInv': False, 'AllowTpl': False, 'AllowPath': False, 'AllowInit': False, 'RoleMngInv': None, 'RoleMngTpl': None, 'RoleMngPath': None, 'RoleMngInit': None, 'RoleSeeInv': None, 'RoleSeeTpl': None, 'RoleSeePath': None, 'RoleSkipPath': None, 'RoleSelfInit': None, 'RoleSelf+Inv': None, 'RoleCanSelf-Inv': None, 'RoleCanTrade': None, 'RoleCanSelfInfo': None, 'OnlyTpl': False}}
 
 # List of (object,name,get_method)
 TYPES = [(CTX, "ctx", None),
@@ -657,6 +706,9 @@ async def on_ready():
 async def on_disconnect():
   print("\nDisconnected")
 
+@with_creds({"TOKEN": 4})
+def RUN(TOKEN):
+    nest_asyncio.apply()
+    BOT.run(TOKEN, reconnect = True)
 
-nest_asyncio.apply()
-BOT.run(TOKEN, reconnect = True)
+RUN()
