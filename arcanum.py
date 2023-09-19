@@ -134,6 +134,9 @@ BOT = CMDS.Bot(command_prefix = PREFIX,
 
 
 
+S_COLUMNS = ["s_id", "paths", "fields", "items", "params", "perms"]
+
+
 connector = CON()
 @with_creds({"HOST": 0, "USER": 1, "PASSWORD": 2, "DATABASE": 3})
 def getconn(HOST, USER, PASSWORD, DATABASE) -> SQL.connections.Connection:
@@ -161,7 +164,7 @@ def sql(query: str, params: dict = None, multiple: bool = False) -> any:
     return result
 
 
-S_CACHE = {0: {"paths": {}, "fields": [], "params": {}, "perms": {}}}
+S_CACHE = {0: {"paths": {}, "fields": [], "items": {}, "params": {}, "perms": {}}}
 
 
 def innit_guild(guild: int) -> None:
@@ -169,30 +172,46 @@ def innit_guild(guild: int) -> None:
 
 
 def get_guild_sql(guild: int) -> dict:
-    query = list(sql("select * from SERVERS where s_id = :s_id", {"s_id": guild}))
+    query = sql("select * from SERVERS where s_id = :s_id", {"s_id": guild})
     if query:
+        query = list(query)
         del query[0]
-        columns = ["paths", "fields", "params", "perms"]
-        result = {guild: {}}
-        for i in range(len(columns)):
-            result[guild][columns[i]] = json.loads(query[i])
+        for i in range(len(S_COLUMNS[1:])):
+            result = {S_COLUMNS[1:][i]: json.loads(query[i])}
         return result
     return False
         
 
 def set_guild_sql(guild: int, cache: dict) -> bool:
-    columns = ["paths", "fields", "params", "perms"]
-    parameters = {i: json.dumps(cache[i]) for i in columns}
+    parameters = {i: json.dumps(cache[i]) for i in S_COLUMNS[1:]}
     parameters["s_id"] = guild
     if get_guild_sql(guild):
-        sql("update SERVERS set paths = :paths, fields = :fields," \
-            + "params = :params, perms = :perms where s_id = :s_id", parameters)
+        text = ", ".join([f"{i} = :{i}"] for i in S_COLUMNS[1:])
+        sql(f"update SERVERS set {text} where s_id = :s_id", parameters)
         return True
     else:
-        sql("insert into SERVERS (s_id, paths, fields, params, perms) values" \
-            + "(:s_id, :paths, :fields, :params, :perms)", parameters)
+        text1 = ", ".join(i for i in S_COLUMNS)
+        text2 = ", ".join(f":{i}" for i in S_COLUMNS)
+        sql(f"insert into SERVERS ({text1}) values ({text2})", parameters)
         return False
 
+
+def with_data(keys: list = S_COLUMNS[1:]):
+    def decorator(func: callable) -> callable:
+        async def wrapper(*args, **kwargs) -> any:
+            guild = args[0].guild.id
+            sql_data = get_guild_sql(guild)
+            if guild not in S_CACHE and sql_data:
+                S_CACHE[guild] = sql_data
+            if guild not in S_CACHE:
+                guild = 0
+            data = {i:S_CACHE[guild][i] for i in keys}
+            data["s_id"] = guild
+            kwargs.update(data)
+            result = await func(*args, **kwargs)
+            return result
+        return wrapper
+    return decorator
 
 
 
@@ -201,7 +220,7 @@ def set_guild_sql(guild: int, cache: dict) -> bool:
 ##########################################################################
 
 
-# List of (object,name,get_method)
+
 TYPES = [(CTX, "ctx", None),
          (DSC.Guild, "guild", "get_guild"),
          (DSC.TextChannel, "channel", "get_channel"),
@@ -293,13 +312,42 @@ async def rt_ok_(msg: DSC.Message, user: DSC.User, recursive: int, txt: str) -> 
 
 
 ##########################################################################
+# DATA
+##########################################################################
+
+
+
+async def require_data(channel, s_id: int) -> bool:
+    if s_id == 0:
+        channel = dsc_obj(channel, "channel")
+        await reactech(channel, "⚠️", True, 0, 3600, "True", "channel.send(\
+                       'Your server has no valid Database entry in our system.\
+                       \u005cnUse the /innit command to register one now.\
+                       \u005cnIf you think this is an error, contact a bot admin.)")
+        return False
+    return True
+
+
+@BOT.command(name = "innit", aliases = ["initialize"])
+@with_data([])
+async def innit(ctx, s_id = None) -> None:
+    if s_id == 0:
+        innit_guild(ctx.guild.id)
+    elif s_id == ctx.guild.id:
+        print("Entry exists")
+    else:
+        print("Linked ?")
+
+
+
+##########################################################################
 # ROLL
 ##########################################################################
 
 
 
 @BOT.command(name = "roll", aliases = ["dice", "calculate", "calc", "c", "d", "r", "eval"])
-async def roll(ctx: CTX, *, txt: str):
+async def roll(ctx: CTX, *, txt: str) -> any:
     allow = "0123456789()+-*/%dtsefxa^hmovl,."
     txt = "".join([i for i in str(txt) if i in allow])
     try: txt = dice.roll(txt)
@@ -642,7 +690,7 @@ async def on_message(msg: DSC.message) -> None:
 @BOT.event
 async def on_command_error(ctx: CTX, error):
     a= ("⛔","This command requires a role or permission you do not posess.\nIf you think this is a mistake, contact server admins.")
-    b= ("📛","This command can only be opperated by a bot admin.\nIf you think this is a mistake, contact the developer(s).")
+    b= ("📛","This command can only be operated by a bot admin.\nIf you think this is a mistake, contact the developer(s).")
     c= ("🚫","This command cannot be utilized in the current context.\nRefer to the Error name for more precision.")
     d= ("⁉️","This command was wrongfully formatted or does not exist.\nConsult proper usage using the HELP command.")
     e= ("❓","A required Discord Object could not be resolved.\nMake sure your object names or IDs are correct before trying again.")
