@@ -13,6 +13,7 @@ Data on Google Cloud SQL (encrypted at rest and in transit)
 
 __author__ = "GeekGames74"
 __email__ = "geekgames74.fr@gmail.com"
+__version__ = "0.1.5"
 
 
 
@@ -29,10 +30,13 @@ import traceback
 import json
 
 
+# Get last version of pip available, programmatically
 try:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q", "pip", "--upgrade"], shell= True)
 except subprocess.CalledProcessError: pass
 
+
+# Install dependencies (TODO: Look into making a dependencies file)
 REQUIRE = ["discord.py", "asyncio", "nest_asyncio", "dice",
            "cloud-sql-python-connector[pymysql]", "sqlalchemy", "pymysql"]
 
@@ -65,16 +69,19 @@ import pymysql as SQL
 
 
 
+# Delete (var) from execution environment, or at least obfuscate it
 def del_env(var) -> None:
     if isinstance(var, str):
         globals()[var] = "HIDDEN"
         exec(f"{var} = 'HIDDEN'")
         exec(f"del {var}")
+    # (var) can also be a list of variables to del_env()
     elif isinstance(var, list):
         for i in var:
             del_env(i)
 
 
+# Remove code from the environment, as a precaution
 def del_i() -> None:
     del_env("In")
     i = 0
@@ -88,6 +95,7 @@ def local_path():
     return os.path.dirname(os.path.realpath(__file__))
 
 
+# Obtain requested credentials with {VarName: index}
 def with_creds(creds: dict):
     def decorator(func: callable) -> callable:
         def wrapper(*args, **kwargs) -> any:
@@ -95,6 +103,7 @@ def with_creds(creds: dict):
             local_creds = {}
             with open(cred_file) as F:
                 lines = F.readlines()
+            # Remember : readline() might return "\n" at the end of the line
             for i,j in list(creds.items()):
                 local_creds[i] = lines[j].removesuffix("\n")
             kwargs.update(local_creds)
@@ -113,7 +122,6 @@ def with_creds(creds: dict):
 
 
 # Intents required by the bot. Limit to minimum.
-# Ensure both here and dev portal are setup.
 intents = DSC.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -134,7 +142,8 @@ BOT = CMDS.Bot(command_prefix = PREFIX,
 
 
 
-S_COLUMNS = ["s_id", "paths", "fields", "items", "params", "perms"]
+# SQL Database columns for each table. Keep up to date
+S_COLUMNS = ["S_id", "Paths", "Fields", "Items", "Params", "Perms"]
 
 
 connector = CON()
@@ -148,6 +157,8 @@ def getconn(HOST, USER, PASSWORD, DATABASE) -> SQL.connections.Connection:
 DB = ALC.create_engine("mysql+pymysql://", creator = getconn,)
 
 
+# Parse any SQL query and execute it, avoid SQL injection
+# ex: sql("select * from TABLE where id = :id",{id: 0})
 def sql(query: str, params: dict = None, multiple: bool = False) -> any:
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = f"{local_path()}\\ADC.json"
     with DB.connect() as db_conn:
@@ -164,15 +175,18 @@ def sql(query: str, params: dict = None, multiple: bool = False) -> any:
     return result
 
 
-S_CACHE = {0: {"paths": {}, "fields": [], "items": {}, "params": {}, "perms": {}}}
+# Initialise cache and default values for columns and parameters
+S_CACHE = {0: {"Paths": {}, "Fields": [], "Items": {}, "Params": {}, "Perms": {}}}
 
 
 def innit_guild(guild: int) -> None:
     S_CACHE[guild] = S_CACHE[0].copy()
 
 
+# Pull guild data from DB as return of function
+# Does not save it in cache
 def get_guild_sql(guild: int) -> dict:
-    query = sql("select * from SERVERS where s_id = :s_id", {"s_id": guild})
+    query = sql("select * from SERVERS where S_id = :S_id", {"S_id": guild})
     if query:
         query = list(query)
         del query[0]
@@ -182,12 +196,15 @@ def get_guild_sql(guild: int) -> dict:
     return False
         
 
+# Save guild data to the SQL Database (does not remove from cache)
+# Returns True if it is in the DB, else False
 def set_guild_sql(guild: int, cache: dict) -> bool:
     parameters = {i: json.dumps(cache[i]) for i in S_COLUMNS[1:]}
-    parameters["s_id"] = guild
+    parameters["S_id"] = guild
+    # If it already has an entry in SQL, cannot overwrite it
     if get_guild_sql(guild):
         text = ", ".join([f"{i} = :{i}"] for i in S_COLUMNS[1:])
-        sql(f"update SERVERS set {text} where s_id = :s_id", parameters)
+        sql(f"update SERVERS set {text} where S_id = :S_id", parameters)
         return True
     else:
         text1 = ", ".join(i for i in S_COLUMNS)
@@ -196,17 +213,22 @@ def set_guild_sql(guild: int, cache: dict) -> bool:
         return False
 
 
+# Execute with the data of the guild. Execute with [*,column_name]
+# If no data is found, it uses guild 0 (default parameters)
+# TODO: Change if server linking enabled
 def with_data(keys: list = S_COLUMNS[1:]):
     def decorator(func: callable) -> callable:
         async def wrapper(*args, **kwargs) -> any:
             guild = args[0].guild.id
-            sql_data = get_guild_sql(guild)
-            if guild not in S_CACHE and sql_data:
+            # If not in cache, attempt to pull it
+            if guild not in S_CACHE:
+                sql_data = get_guild_sql(guild)
                 S_CACHE[guild] = sql_data
             if guild not in S_CACHE:
                 guild = 0
+            # Build the dictionnary to use as kwargs
             data = {i:S_CACHE[guild][i] for i in keys}
-            data["s_id"] = guild
+            data["S_id"] = guild
             kwargs.update(data)
             result = await func(*args, **kwargs)
             return result
@@ -221,6 +243,7 @@ def with_data(keys: list = S_COLUMNS[1:]):
 
 
 
+# (Discord.Object, common_name, get_function) triplets
 TYPES = [(CTX, "ctx", None),
          (DSC.Guild, "guild", "get_guild"),
          (DSC.TextChannel, "channel", "get_channel"),
@@ -234,6 +257,7 @@ TYPES = [(CTX, "ctx", None),
         ]
 
 
+# Transform (input) to a valid object id (does not output which)
 def dsc_toid(input) -> any:
     if isinstance(input, int): return input
     if isinstance(input, str):
@@ -245,6 +269,7 @@ def dsc_toid(input) -> any:
     return False
 
 
+# Declare if (input) is either a Discord.Object, an ID, or neither
 def dsc_type(input) -> any:
     for type_, name, call in TYPES:
         if isinstance(input, type_): return name
@@ -253,54 +278,58 @@ def dsc_type(input) -> any:
     else: return None
 
 
+# Transform given input to request Discord.Object
+# If unable to, raises error
 def dsc_obj(input, obj: str, ctx = None) -> any:
     if dsc_type(input) == obj: return input
-
     if dsc_toid(input):
         input = dsc_toid(input)
-
     if ctx is not None:
         if obj == "message": ctx = dsc_obj(ctx, "channel")
         else: ctx = dsc_obj(ctx, "guild")
-
     if dsc_type(input) == "id":
         if obj == "guild": return BOT.get_guild(int(input))
         method = getattr(ctx, {name: call for (_, name, call) in TYPES}[obj], None)
         return method(int(input))
-
     elif dsc_type(input) == "ctx":
         if obj in ["user", "member"]: return input.author
         return getattr(input,obj)
-
     raise TypeError(f"input {input} of type {type(input)} with request '{obj}' in dsc_obj()")
 
 
+# Dynamic reaction general-use function to interract \
+# neatly with user. Several parameters available.
+# Command uses exec() -> Be careful with usage.
+# Consider subfunctions for regularly-used cases.
 async def reactech(ctx, emoji: str, react: bool = True,
                    recursive: int = -1, timeout: int = 3600, cond: str = "True",
                    method: str = "user.send(args)", *args) -> None:
     msg = dsc_obj(ctx, "message")
     if react: await msg.add_reaction(emoji)
-
+    # Here the Bot waits for a reaction add that matches (check)
     def check(reaction: DSC.Reaction, user: DSC.User) -> bool:
         return (msg == reaction.message
                 and emoji == reaction.emoji and user != BOT.user
                 and eval(cond, globals(), locals()|{"ctx": ctx, "emoji": emoji}))
+    # (reaction) and (user) are kept fo method purposes
     try:
       reaction, user = await BOT.wait_for("reaction_add",
                                            check = check, timeout = timeout)
     except asyncio.TimeoutError: pass
     except Exception as e: raise e
-
+    # If an user reacts, it executes the method
     else:
         try: await eval(method, globals(), locals())
         except Exception as e: raise e
         else:
-
+            # Able to repeat this process until Bot disconnect
             if recursive !=0:
                 await reactech(msg, emoji, False, recursive-1,
                                timeout, cond, method, *args)
 
 
+# REACTECH SUBFUNCTIONS
+# rt_ok : confirm message : send once in channel, then to users
 async def rt_ok(ctx, txt: str) -> None:
     await reactech(ctx, "✅", True, -1, None, "True", "rt_ok_(msg,user,recursive,args)", txt)
 async def rt_ok_(msg: DSC.Message, user: DSC.User, recursive: int, txt: str) -> None:
@@ -317,26 +346,29 @@ async def rt_ok_(msg: DSC.Message, user: DSC.User, recursive: int, txt: str) -> 
 
 
 
-async def require_data(channel, s_id: int) -> bool:
-    if s_id == 0:
+# Use in @with_data() process to check for existence and warn
+# "if require_data(ctx, 0): return"
+async def require_data(channel, S_id: int) -> bool:
+    if S_id == 0:
         channel = dsc_obj(channel, "channel")
         await reactech(channel, "⚠️", True, 0, 3600, "True", "channel.send(\
-                       'Your server has no valid Database entry in our system.\
+                       'Your server has no valid Database Entry in our system.\
                        \u005cnUse the /innit command to register one now.\
                        \u005cnIf you think this is an error, contact a bot admin.)")
         return False
     return True
 
 
+# Initialize cache entry for given server, or warns if one exists
 @BOT.command(name = "innit", aliases = ["initialize"])
 @with_data([])
-async def innit(ctx, s_id = None) -> None:
-    if s_id == 0:
+async def innit(ctx, S_id = None) -> None:
+    if S_id == 0:
         innit_guild(ctx.guild.id)
-    elif s_id == ctx.guild.id:
-        print("Entry exists")
     else:
-        print("Linked ?")
+        await reactech(channel, "⚠️", True, 0, 3600, "True", "channel.send(\
+                       'Your server already has a Database Entry.\
+                       \u005cnIf you think this is an error, contact a bot admin.)")
 
 
 
@@ -346,6 +378,8 @@ async def innit(ctx, s_id = None) -> None:
 
 
 
+# Roll a dice.roll expression, removes unwanted characters
+# Suggests module library on wrong input
 @BOT.command(name = "roll", aliases = ["dice", "calculate", "calc", "c", "d", "r", "eval"])
 async def roll(ctx: CTX, *, txt: str) -> any:
     allow = "0123456789()+-*/%dtsefxa^hmovl,."
@@ -361,8 +395,14 @@ async def roll(ctx: CTX, *, txt: str) -> any:
         return txt
 
 
+# Resolves mathematical or dice notation from regular messages
+# Will not attempt if message is over 50 characters or >50% wrong
+# Only notifies of available answer if it produces no error
 async def msg_dice(msg: DSC.message) -> None:
     content = msg.content
+    remove = ["roll", "dice", "eval", "calc"]
+    for i in remove:
+        content = content.replace(i, "")
     if len(content) > 50: return
     allow = "0123456789()+-*/%dtsefxa^hmovl,."
     txt = "".join([i for i in str(content) if i in allow])
@@ -628,11 +668,12 @@ async def ping(ctx: CTX = None) -> int:
     return BOT.latency
 
 
+# Evaluates expression or runs code from Discord
+# Uses exec() : Be careful of input !
 @BOT.command(name = "echo", aliases = ['console', 'send', 'exec', 'command',' cmd', 'execute'])
 @CMDS.is_owner()
 async def echo(ctx: CTX, *, txt: str) -> None:
   print(txt)
-  # Eval Expression OR run code
   try: await eval(txt)
   except SyntaxError:
     try: exec(txt)
@@ -640,6 +681,8 @@ async def echo(ctx: CTX, *, txt: str) -> None:
   except Exception as e: print(e)
 
 
+# Changes current bot activity and status message
+# Activity is designated with keywords in (action)
 @BOT.command(name = "activity", aliases = ["status"])
 @CMDS.is_owner()
 async def activity(ctx: CTX, action: str = 'watch', *, txt: str = str(len(BOT.guilds)+1) + ' servers') -> DSC.Activity:
@@ -658,7 +701,6 @@ async def activity(ctx: CTX, action: str = 'watch', *, txt: str = str(len(BOT.gu
 @BOT.command(name = "kill", aliases = ["killtask", "end", "endtask", "destroy", "shutdown"])
 @CMDS.is_owner()
 async def kill(ctx: CTX = None) -> None:
-  """Disconnects the bot"""
   print("\nDisconnecting")
   await BOT.close()
 
@@ -675,7 +717,6 @@ async def on_message(msg: DSC.message) -> None:
     await BOT.process_commands(msg)
     if msg.content.startswith(PREFIX): return
     if msg.author == BOT.user: return
-
     await msg_dice(msg)
     await msg_path(msg)
 
@@ -689,12 +730,14 @@ async def on_message(msg: DSC.message) -> None:
 
 @BOT.event
 async def on_command_error(ctx: CTX, error):
+    # Message to display on error, along with react emoji
     a= ("⛔","This command requires a role or permission you do not posess.\nIf you think this is a mistake, contact server admins.")
     b= ("📛","This command can only be operated by a bot admin.\nIf you think this is a mistake, contact the developer(s).")
     c= ("🚫","This command cannot be utilized in the current context.\nRefer to the Error name for more precision.")
     d= ("⁉️","This command was wrongfully formatted or does not exist.\nConsult proper usage using the HELP command.")
     e= ("❓","A required Discord Object could not be resolved.\nMake sure your object names or IDs are correct before trying again.")
     f= ("‼️","The bot could not execute this command.\nMake sure to setup the application properly.")
+    # Link every (most) errors with its proper message
     errors=[
         (CMDS.MissingPermissions,a),
         (CMDS.NotOwner,b),
@@ -742,6 +785,7 @@ async def on_connect():
   print("\nConnecting\n")
   del_env("TOKEN")
   del_i()
+  set_guild_sql(0, S_CACHE[0])
 
 
 @BOT.event
