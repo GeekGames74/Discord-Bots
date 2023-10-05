@@ -13,7 +13,7 @@ Data on Google Cloud SQL (encrypted at rest and in transit)
 
 __author__ = "GeekGames74"
 __email__ = "geekgames74.fr@gmail.com"
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 
 
@@ -104,7 +104,7 @@ def with_creds(creds: dict):
             with open(cred_file) as F:
                 lines = F.readlines()
             # Remember : readline() might return "\n" at the end of the line
-            for i,j in list(creds.items()):
+            for i,j in creds.items():
                 local_creds[i] = lines[j].removesuffix("\n")
             kwargs.update(local_creds)
             result = func(*args, **kwargs)
@@ -168,10 +168,12 @@ def sql(query: str, params: dict = None, multiple: bool = False) -> any:
             result = db_conn.execute(ALC.text(query))
         db_conn.commit()
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "HIDDEN"
-    if multiple:
-        result = result.fetchall()
-    else:
-        result = result.fetchone()
+    try:
+        if multiple:
+            result = result.fetchall()
+        else:
+            result = result.fetchone()
+    except ALC.exc.ResourceClosedError: pass
     return result
 
 
@@ -190,11 +192,17 @@ def get_guild_sql(guild: int) -> dict:
     if query:
         query = list(query)
         del query[0]
+        result = {}
         for i in range(len(S_COLUMNS[1:])):
-            result = {S_COLUMNS[1:][i]: json.loads(query[i])}
+            result[S_COLUMNS[1:][i]] = json.loads(query[i])
+        result["Paths"] = sql_parse_paths(result["Paths"])
         return result
     return False
         
+
+def sql_parse_paths(Paths: dict) -> dict:
+    return {int(key):int(value) for key, value in Paths.items()}
+
 
 # Save guild data to the SQL Database (does not remove from cache)
 # Returns True if it is in the DB, else False
@@ -203,7 +211,7 @@ def set_guild_sql(guild: int, cache: dict) -> bool:
     parameters["S_id"] = guild
     # If it already has an entry in SQL, cannot overwrite it
     if get_guild_sql(guild):
-        text = ", ".join([f"{i} = :{i}"] for i in S_COLUMNS[1:])
+        text = ", ".join([f"{i} = :{i}" for i in S_COLUMNS[1:]])
         sql(f"update SERVERS set {text} where S_id = :S_id", parameters)
         return True
     else:
@@ -213,16 +221,24 @@ def set_guild_sql(guild: int, cache: dict) -> bool:
         return False
 
 
+def save_cache():
+    for key,value in S_CACHE.items():
+        if key != 0:
+            set_guild_sql(key, value)
+
+
+
 # Execute with the data of the guild. Execute with [*,column_name]
 # If no data is found, it uses guild 0 (default parameters)
 # TODO: Change if server linking enabled
+# TODO: Make sure columns are properly get
 def with_data(keys: list = S_COLUMNS[1:]):
     def decorator(func: callable) -> callable:
-        async def wrapper(*args, **kwargs) -> any:
-            guild = args[0].guild.id
+        async def wrapper(ctx, *args, **kwargs) -> any:
+            guild = ctx.guild.id
             # If not in cache, attempt to pull it
-            if guild not in S_CACHE:
-                sql_data = get_guild_sql(guild)
+            sql_data = get_guild_sql(guild)
+            if guild not in S_CACHE and sql_data:
                 S_CACHE[guild] = sql_data
             if guild not in S_CACHE:
                 guild = 0
@@ -230,7 +246,7 @@ def with_data(keys: list = S_COLUMNS[1:]):
             data = {i:S_CACHE[guild][i] for i in keys}
             data["S_id"] = guild
             kwargs.update(data)
-            result = await func(*args, **kwargs)
+            result = await func(ctx, *args, **kwargs)
             return result
         return wrapper
     return decorator
@@ -297,13 +313,24 @@ def dsc_obj(input, obj: str, ctx = None) -> any:
     raise TypeError(f"input {input} of type {type(input)} with request '{obj}' in dsc_obj()")
 
 
-# Dynamic reaction general-use function to interract \
+
+##########################################################################
+# UTILITY
+##########################################################################
+
+
+
+# TODO: Translate messages
+# async def bot_send():
+
+
+# Dynamic reaction general-use function to interract
 # neatly with user. Several parameters available.
 # Command uses exec() -> Be careful with usage.
 # Consider subfunctions for regularly-used cases.
 async def reactech(ctx, emoji: str, react: bool = True,
                    recursive: int = -1, timeout: int = 3600, cond: str = "True",
-                   method: str = "user.send(args)", *args) -> None:
+                   method: str = "pass", *args) -> None:
     msg = dsc_obj(ctx, "message")
     if react: await msg.add_reaction(emoji)
     # Here the Bot waits for a reaction add that matches (check)
@@ -355,20 +382,20 @@ async def require_data(channel, S_id: int) -> bool:
                        'Your server has no valid Database Entry in our system.\
                        \u005cnUse the /innit command to register one now.\
                        \u005cnIf you think this is an error, contact a bot admin.)")
-        return False
-    return True
+        return True
+    return False
 
 
 # Initialize cache entry for given server, or warns if one exists
 @BOT.command(name = "innit", aliases = ["initialize"])
 @with_data([])
-async def innit(ctx, S_id = None) -> None:
+async def innit(ctx, S_id) -> None:
     if S_id == 0:
         innit_guild(ctx.guild.id)
     else:
-        await reactech(channel, "⚠️", True, 0, 3600, "True", "channel.send(\
+        await reactech(ctx.message, "⚠️", True, 0, 3600, "True", "msg.channel.send(\
                        'Your server already has a Database Entry.\
-                       \u005cnIf you think this is an error, contact a bot admin.)")
+                       \u005cnIf you think this is an error, contact a bot admin.')")
 
 
 
@@ -407,6 +434,7 @@ async def msg_dice(msg: DSC.message) -> None:
     allow = "0123456789()+-*/%dtsefxa^hmovl,."
     txt = "".join([i for i in str(content) if i in allow])
     if len(txt) < 0.5*len(content.replace(" ", "")): return
+    if txt.isdigit(): return
     try: txt = dice.roll(txt)
     except: pass
     else: await reactech(msg, "🎲", True, 0, 300, "True", f"msg.channel.send('{txt}')")
@@ -419,29 +447,26 @@ async def msg_dice(msg: DSC.message) -> None:
 
 
 
-def check_path_entry(channel: DSC.channel) -> bool:
-    cid, gid = str(channel.id), str(channel.guild.id)
-    if cid in SERVERS[gid]["Paths"]:
-        rid = SERVERS[gid]["Paths"][cid]
-        if dsc_type(rid) == "id":
-            role = channel.guild.get_role(int(rid))
+def check_path_entry(channel: DSC.channel, Paths: dict) -> bool:
+    if channel.id in Paths:
+        role_id = Paths[channel.id]
+        if dsc_type(role_id) == "id":
+            role = channel.guild.get_role(role_id)
             if role is not None and role in channel.overwrites:
                 return True
     return False
 
 
-async def fix_path_entry(channel: DSC.channel) -> list:
-    if check_path_entry(channel): return []
-    cid,gid,cnm = str(channel.id), str(channel.guild.id), channel.name
-    if (dsc_type(SERVERS[gid]["Paths"].get(cid)) != "id" or
-            channel.guild.get_role(int(SERVERS[gid]["Paths"].get(cid))) is None):
-        role = [i for i in channel.guild.roles if i.name == cnm]
+async def fix_path_entry(channel: DSC.channel, Paths: dict) -> dict:
+    if (dsc_type(Paths.get(channel.id)) != "id" or
+            channel.guild.get_role(Paths.get(channel.id)) is None):
+        role = [i for i in channel.guild.roles if i.name == channel.name]
         if role: role = role[0]
         else:
-            role= await channel.guild.create_role(name = cnm,
-                                                  reason = f"Path role for channel {cnm}")
-        SERVERS[gid]["Paths"][cid] = str(role.id)
-    role = channel.guild.get_role(int(SERVERS[gid]["Paths"][cid]))
+            role= await channel.guild.create_role(name = channel.name,
+                                                  reason = f"Path role for channel {channel.name}")
+        Paths[channel.id] = role.id
+    role = channel.guild.get_role(Paths[channel.id])
     if role not in channel.overwrites:
         overwrites = channel.overwrites
         overwrites[role] = DSC.PermissionOverwrite(view_channel=True,
@@ -449,15 +474,15 @@ async def fix_path_entry(channel: DSC.channel) -> list:
                                                     send_messages=True,
                                                     read_message_history=True)
         await channel.edit(overwrites = overwrites)
-    return [channel]
+    return Paths
 
 
-def is_path(fro: DSC.channel, to: DSC.channel) -> bool:
-    return fro.guild.get_role(int(SERVERS[str(fro.guild.id)]["Paths"][str(fro.id)])) in to.overwrites
+def is_path(fro: DSC.channel, to: DSC.channel, Paths: dict) -> bool:
+    return fro.guild.get_role(Paths[fro.id]) in to.overwrites
 
 
-async def create_path(fro: DSC.channel, to: DSC.channel) -> tuple:
-    role = fro.guild.get_role(int(SERVERS[str(fro.guild.id)]["Paths"][str(fro.id)]))
+async def create_path(fro: DSC.channel, to: DSC.channel, Paths: dict) -> None:
+    role = fro.guild.get_role(Paths[fro.id])
     role_see = None #dsc_obj(None, "role")
     role_hear = None #dsc_obj(None, "role")
     role_skip = None #dsc_obj(None, "role")
@@ -480,31 +505,27 @@ async def create_path(fro: DSC.channel, to: DSC.channel) -> tuple:
                                                         read_message_history=True,
                                                         send_messages=True)
     await to.edit(overwrites = overwrites)
-    return (fro, to)
 
 
-async def delete_path(fro: DSC.channel, to: DSC.channel) -> tuple:
-    role= fro.guild.get_role(int(SERVERS[str(fro.guild.id)]["Paths"][str(fro.id)]))
+async def delete_path(fro: DSC.channel, to: DSC.channel, Paths: dict) -> None:
+    role= fro.guild.get_role(Paths[fro.id])
     await to.set_permissions(role, overwrite = None)
-    return (fro, to)
 
 
-def is_path_void(channel: DSC.channel) -> bool:
-    g = channel.guild
-    if check_path_entry(channel):
-        role = g.get_role(int(SERVERS[str(g.id)]["Paths"][str(channel.id)]))
-        for key, value in SERVERS[str(channel.guild.id)]["Paths"].items():
-            if check_path_entry(g.get_channel(int(key))) and int(key) != channel.id:
-                if (g.get_role(int(value)) in channel.overwrites
-                    or role in (g.get_channel(int(key))).overwrites):
+def is_path_void(channel: DSC.channel, Paths: dict) -> bool:
+    if check_path_entry(channel, Paths):
+        role = channel.guild.get_role(Paths[channel.id])
+        for key, value in Paths.items():
+            if check_path_entry(channel.guild.get_channel(key), Paths) and key != channel.id:
+                if (channel.guild.get_role(value) in channel.overwrites
+                    or role in (channel.guild.get_channel(key)).overwrites):
                     return False
         return True
     return False
 
 
 
-async def destroy_path(channel: DSC.channel) -> list:
-    cid, gid = str(channel.id), str(channel.guild.id)
+async def destroy_path(channel: DSC.channel, Paths: dict) -> dict:
     role_see = None #dsc_obj(None, "role")
     role_hear = None #dsc_obj(None, "role")
     role_skip = None #dsc_obj(None, "role")
@@ -519,20 +540,19 @@ async def destroy_path(channel: DSC.channel) -> list:
     if role_skip is not None:
         overwrites[role_skip] = none_
 
-    if cid in SERVERS[gid]["Paths"]:
-        if dsc_type(SERVERS[gid]["Paths"].get(cid)) == "id":
-            role = (channel.guild.get_role(int(SERVERS[gid]["Paths"][cid])))
-            if role is not None:
-               await role.delete(reason = f"Destroyed path around {channel.name}: pair ({channel.id}:{role.id})")
-        await channel.edit(overwrites = overwrites)
-        del SERVERS[gid]["Paths"][cid]
-        return [channel]
-    return []
+    if dsc_type(Paths.get(channel.id)) == "id":
+        role = (channel.guild.get_role(Paths[channel.id]))
+        if role is not None:
+            await role.delete(reason = f"Destroyed path around {channel.name}: pair ({channel.id}:{role.id})")
+    await channel.edit(overwrites = overwrites)
+    del Paths[channel.id]
+    return Paths
 
 
-@CMDS.has_permissions(manage_channels = True)
-@BOT.command(name = "path", aliases = ["pathway", "road", "roadway", "journey", "travel"])
-async def path(ctx: CTX, *args: str) -> dict:
+@BOT.command(name = "path", aliases = ["pathway", "road", "roadway", "journey"])
+@with_data(["Paths"])
+async def path(ctx: CTX, *args: str, **kwargs) -> dict:
+    S_id, Paths = kwargs.get("S_id"), kwargs.get("Paths")
     modes={"To": ["to", "towards", "branch", ">", "->"],
            "From": ["fro", "from", "origin", "root", "<", "<-"],
            "Both": ["both", "link", "create", "carve", "pair", "<>", "><"],
@@ -560,6 +580,7 @@ async def path(ctx: CTX, *args: str) -> dict:
                 await reactech(ctx, "⁉️", True, -1, 3600, "True",
                                f"user.send('Must select a Mode (direction) before specifying channels.')")
                 return
+            # TODO: modify message when regions/groups are added
             if len(ctx.guild.roles) > 248:
                 await reactech(ctx, "‼️", True, 0, 3600, "True",
                                f"msg.channel.send('Discord does not allow for anymore roles to be created. \
@@ -571,21 +592,31 @@ async def path(ctx: CTX, *args: str) -> dict:
             if mode in bits and channel != ctx.channel:
                 bits = bits[mode]
 
-                end["Fixed"] += await fix_path_entry(ctx.channel)
-                end["Fixed"] += await fix_path_entry(channel)
+                if not check_path_entry(ctx.channel, Paths):
+                    Paths = await fix_path_entry(ctx.channel, Paths)
+                    end["Fixed"] += [ctx.channel]
+                if not check_path_entry(channel, Paths):
+                    Paths = await fix_path_entry(channel, Paths)
+                    end["Fixed"] += [channel]
 
-                if bits[0]=="1" and not is_path(ctx.channel, channel):
-                    end["Created"].append(await create_path(ctx.channel, channel))
-                if bits[0]=="0" and is_path(ctx.channel, channel):
-                    end["Deleted"].append(await delete_path(ctx.channel, channel))
+                if bits[0]=="1" and not is_path(ctx.channel, channel, Paths):
+                    await create_path(ctx.channel, channel, Paths)
+                    end["Created"] += [(ctx.channel, channel)]
+                if bits[0]=="0" and is_path(ctx.channel, channel, Paths):
+                    await delete_path(ctx.channel, channel, Paths)
+                    end["Deleted"] += [(ctx.channel, channel)]
 
-                if bits[1]=="1" and not is_path(channel, ctx.channel):
-                    end["Created"].append(await create_path(channel, ctx.channel))
-                if bits[1]=="0" and is_path(channel, ctx.channel):
-                    end["Deleted"].append(await delete_path(channel, ctx.channel))
+                if bits[1]=="1" and not is_path(channel, ctx.channel, Paths):
+                    await create_path(channel, ctx.channel, Paths)
+                    end["Created"] += [(channel, ctx.channel)]
+                if bits[1]=="0" and is_path(channel, ctx.channel, Paths):
+                    await delete_path(channel, ctx.channel, Paths)
+                    end["Deleted"] += [(channel, ctx.channel)]
 
                 if mode == "Delete": check_unpath += [channel]
-            elif mode == "Destroy": end["Destroyed"] += await destroy_path(channel)
+            elif mode == "Destroy":
+                Paths = await destroy_path(channel, Paths)
+                end["Destroyed"] += [channel]
 
         else:
             await reactech(ctx, "❓", True, -1, 3600, "True",
@@ -599,7 +630,7 @@ async def path(ctx: CTX, *args: str) -> dict:
             check_unpath.append(j)
 
     for i in check_unpath:
-        if is_path_void(i):
+        if is_path_void(i, Paths):
             end["Destroyed"] += await destroy_path(i)
 
     for key, value in end.items():
@@ -610,12 +641,13 @@ async def path(ctx: CTX, *args: str) -> dict:
                 end[key][i] = value[i].mention
         end[key] = " ,  ".join(end[key])
 
+    tasks = []
     if mode is None:
-        await reactech(ctx, "⁉️", True, -1, 3600, "True",
-                               f"user.send('No mode(s) specified.')")
+        tasks += [reactech(ctx, "⁉️", True, -1, 3600, "True",
+                               f"user.send('No mode(s) specified.')")]
     elif channel is None:
-        await reactech(ctx, "⁉️", True, -1, 3600, "True",
-                               f"user.send('No channel(s) specified.')")
+        tasks += [reactech(ctx, "⁉️", True, -1, 3600, "True",
+                               f"user.send('No channel(s) specified.')")]
     elif any([i for i in end.values()]):
         exit = "\n".join([key + " : " + value for key, value in end.items() if value])
         tasks = [rt_ok(ctx, exit)]
@@ -623,28 +655,29 @@ async def path(ctx: CTX, *args: str) -> dict:
             tasks += [reactech(ctx, "⚠️", True, 0, 3600, "True",
                                f"msg.channel.send('Warning : maximum role limit nearly reached : {len(ctx.guild.roles)}/250. \
                                \u005cnConsider optimizing number of roles or Path channels.')")]
-        await asyncio.gather(*tasks)
     else:
-        await rt_ok(ctx, "Nothing changed...")
-    return end
+        tasks += [rt_ok(ctx, "Nothing changed...")]
+    global S_CACHE
+    S_CACHE[ctx.guild.id]["Paths"] = Paths
+    if tasks:
+        await asyncio.gather(*tasks)
 
 
-
-async def msg_path(msg: DSC.message) -> None:
+@with_data(["Paths"])
+async def msg_path(msg: DSC.message, S_id: int, Paths: dict) -> None:
     if msg.guild is None: return
-    gid, cid = str(msg.guild.id), str(msg.channel.id)
-    if gid not in SERVERS: return
-    if cid not in SERVERS[gid]["Paths"]: return
-    if not check_path_entry(msg.channel): return
-    role = msg.guild.get_role(int(SERVERS[gid]["Paths"][cid]))
+    if S_id not in S_CACHE: return
+    if msg.channel.id not in Paths: return
+    if not check_path_entry(msg.channel, Paths): return
+    role = msg.guild.get_role(Paths[msg.channel.id])
     if msg.author.get_role(role.id) is not None: return
 
     rem_roles, origin = [], "None"
-    for key, value in SERVERS[gid]["Paths"].items():
-        if check_path_entry(msg.guild.get_channel(int(key))):
-            if msg.author.get_role(int(value)) is not None:
-                rem_roles.append(msg.guild.get_role(int(value)))
-                origin = msg.guild.get_channel(int(key)).mention
+    for key, value in Paths.items():
+        if check_path_entry(msg.guild.get_channel(key), Paths):
+            if msg.author.get_role(value) is not None:
+                rem_roles.append(msg.guild.get_role(value))
+                origin = msg.guild.get_channel(key).mention
 
     await msg.author.add_roles(role)
     if role in rem_roles:
@@ -698,18 +731,25 @@ async def activity(ctx: CTX, action: str = 'watch', *, txt: str = str(len(BOT.gu
   return activity
 
 
-@BOT.command(name = "kill", aliases = ["killtask", "end", "endtask", "destroy", "shutdown"])
+@BOT.command(name = "kill", aliases = ["killtask", "end", "endtask", "destroy", "shutdown", "exit"])
 @CMDS.is_owner()
 async def kill(ctx: CTX = None) -> None:
   print("\nDisconnecting")
+  save_cache()
   await BOT.close()
 
 
 
 ##########################################################################
-# EVENTS
+# LOOPS AND EVENTS
 ##########################################################################
 
+
+
+async def loop_10min():
+    while True:
+        await asyncio.sleep(600)
+        save_cache()
 
 
 @BOT.event
@@ -791,6 +831,7 @@ async def on_connect():
 @BOT.event
 async def on_ready():
   print("\nConnected\n\n")
+  BOT.loop.create_task(loop_10min())
   await activity(None)
 
 
