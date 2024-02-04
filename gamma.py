@@ -18,8 +18,6 @@ print("Started")
 
 
 
-# To install requirements using pip : pip install -r requirements.txt
-
 import os
 
 import discord as DSC
@@ -43,8 +41,8 @@ from dice import roll as ROLL
 
 
 
-# Delete (var) from execution environment, or at least obfuscate it
 def del_env(var) -> None:
+    """Delete (var) from execution environment, or at least obfuscate it."""
     if isinstance(var, str):
         globals()[var] = "HIDDEN"
         exec(f"{var} = 'HIDDEN'")
@@ -55,8 +53,8 @@ def del_env(var) -> None:
             del_env(i)
 
 
-# Remove code from the environment, as a precaution
 def del_i() -> None:
+    """Remove code from the environment, as a precaution."""
     del_env("In")
     i = 0
     while i < len(globals()):
@@ -69,24 +67,19 @@ def local_path() -> str:
     return os.path.dirname(os.path.realpath(__file__))
 
 
-# Check if instance of credential is valid
-def try_file(path: str, name: str) -> any:
+def check_file(name: str) -> str:
+    """Tries to resolve given path."""
+    path = local_path() + name
     name.replace("/", os.sep)
     if os.path.isfile(f"{path}{os.sep}{name}"):
         return f"{path}{os.sep}{name}"
-    return False
+    raise FileNotFoundError(f"{name} was not found in current directory")
 
 
-# Determine type of instance running by testing presence of credentials
-def check_creds(name: str) -> str:
-    path = try_file(local_path(), name)
-    if not path:
-        raise FileNotFoundError(f"{name} was not found in current directory")
-    else: return path
-
-
-# TXT: Obtain requested data with {VarName: identifier}
 def with_data(where: str, data: any):
+    """
+    TXT: Obtain requested data with {VarName: identifier}
+    """
     def decorator(func: callable) -> callable:
         def wrapper(*args, **kwargs) -> any:
             if where.endswith(".txt"):
@@ -102,7 +95,7 @@ def with_data(where: str, data: any):
 
 # Data from .txt
 def data_TXT(file: str, data: dict) -> dict:
-    file = check_creds(file)
+    file = check_file(file)
     local_data = {}
     with open(file) as F:
         lines = F.readlines()
@@ -166,8 +159,8 @@ TYPES = [(CTX, "ctx", None),
         ]
 
 
-# Transform (input) to a valid object id (does not output which)
 def dsc_toid(input) -> any:
+    """Transform (input) to a valid object id (does not output which)."""
     if isinstance(input, int): return input
     if isinstance(input, str):
         if input.isdigit(): return int(input)
@@ -178,8 +171,8 @@ def dsc_toid(input) -> any:
     return False
 
 
-# Declare if (input) is either a Discord.Object, an ID, or neither
 def dsc_type(input) -> any:
+    """Declare if (input) is either a Discord.Object, an ID, or neither."""
     for type_, name, call in TYPES:
         if isinstance(input, type_): return name
     if isinstance(input, int) or isinstance(input, str) and input.isdigit():
@@ -187,9 +180,11 @@ def dsc_type(input) -> any:
     else: return None
 
 
-# Transform given input to requested Discord.Object
-# If unable to, raises error
 def dsc_obj(input, obj: str, ctx = None) -> any:
+    """
+    Transform given input to requested Discord.Object
+    If unable to, raises error.
+    """
     if dsc_type(input) == obj: return input
     if dsc_toid(input):
         input = dsc_toid(input)
@@ -211,6 +206,11 @@ def dsc_obj(input, obj: str, ctx = None) -> any:
 # UTILITY
 ##########################################################################
 
+
+
+def least_one(text, checkfor) -> bool:
+    """Check if there is at least one of (checkfor) in (text)."""
+    return any(i in text for i in checkfor)
 
 
 # Dynamic reaction general-use function to interract
@@ -239,7 +239,7 @@ async def reactech(ctx, emoji: str, react: bool = True,
         except Exception as e: raise e
         else:
             # Able to repeat this process until Bot disconnect
-            if recursive !=0:
+            if recursive != 0:
                 await reactech(msg, emoji, False, recursive-1,
                                timeout, cond, method, *args)
 
@@ -266,8 +266,6 @@ async def rt_ok_(msg: DSC.Message, user: DSC.User, recursive: int, txt: str) -> 
 ##########################################################################
 
 
-def least_one(text: str, checkfor) -> bool:
-    return any(i in text for i in checkfor)
 
 def greater_than(left, right) -> int:
     return 1 if left > right else 0
@@ -279,9 +277,13 @@ def lesser_eq_than(left, right) -> int:
     return 1 if left <= right else 0
 
 
-# Automatically detect and evaluate math and rolling expression from msg
-# auto makes it require more checks, used to filter msg_math()
 def main_math(msg, auto: bool = False) -> (any,str):
+    """
+    Automatically detect and evaluate math and rolling expression from msg.
+    <auto> makes it require more checks, used to filter msg_math().
+    """
+    if msg == "pi" : return (pi, "math")
+    msg = msg.replace("pi", "p")
     isdice = True if "d" in msg else False
     allow = "0123456789()+-*/!.,^<=>p"
     if isdice: allow += "%dtsefxahmovl@"
@@ -292,7 +294,7 @@ def main_math(msg, auto: bool = False) -> (any,str):
         if len(msg) > 50: return _
         if len(txt) < 2 or (len(txt) < 3 and not isdice): return _
         if len(txt) < 0.5*len(msg): return _
-        if not least_one(txt, "0123456789"): return _
+        if not least_one(txt, "0123456789p"): return _
         if not isdice and not least_one(txt, "+-*/!^<>"): return _
         if least_one(msg, ["<#","<@","<@&", "\n"]): return _
    
@@ -388,46 +390,48 @@ async def ping(ctx: CTX = None) -> int:
 @BOT.command(name = "echo", aliases = ['console', 'send', 'exec', 'command',' cmd', 'execute'])
 @CMDS.is_owner()
 async def echo(ctx: CTX, *, txt: str) -> None:
-  print(txt)
-  try: await eval(txt)
-  except SyntaxError:
-    try: exec(txt)
-    except Exception as e: raise e
-  except Exception as e: print(e)
+    print(txt)
+    try: await eval(txt)
+    except SyntaxError:
+        try: exec(txt)
+        except Exception as e: raise e
+    except Exception as e: print(e)
 
 
-# Changes current bot activity and status message
-# Activity is designated with keywords in (action)
 @BOT.command(name = "activity", aliases = ["status"])
 @CMDS.is_owner()
 async def activity(ctx: CTX, action: str = "", *, txt = None) -> DSC.Activity:
-  action = action.lower()
-  if 'twitch.tv/' in action: url = action.removeprefix("https://").removeprefix("www.")
-  else : url = "twitch.tv/"
-  url = "https://" + url
-  activity = None
-  if any(i in action for i in ['gam', 'play']) : activity = DSC.Game(name = txt)
-  if any(i in action for i in ['stream', 'twitch']) : activity = DSC.Streaming(name = txt, url = url)
-  if any(i in action for i in ['listen']) : activity = DSC.Activity(type = DSC.ActivityType.listening, name = txt)
-  if any(i in action for i in ['watch', 'video']) : activity = DSC.Activity(type = DSC.ActivityType.watching, name = txt)
-  if any(i in action for i in ['def', 'serv', 'bas', 'main']) : activity = "Default"
-  if activity is None:
-      activity = "Set activity to None"
-      await BOT.change_presence(activity = None)
-  else:
-    if txt is None or activity == "Default":
-        txt = str(len(BOT.guilds)) + ' servers'
-        activity = DSC.Activity(type = DSC.ActivityType.watching, name = txt)
-    await BOT.change_presence(activity = activity)
-  if ctx: await rt_ok(ctx, activity)
-  return activity
+    """
+    Changes current bot activity and status message
+    Activity is designated with keywords in (action)
+    """
+    action = action.lower()
+    if 'twitch.tv/' in action: url = action.removeprefix("https://").removeprefix("www.")
+    else : url = "twitch.tv/"
+    url = "https://" + url
+    activity = None
+    if least_one(action, ['gam', 'play']) : activity = DSC.Game(name = txt)
+    if least_one(action, ['stream', 'twitch']) : activity = DSC.Streaming(name = txt, url = url)
+    if least_one(action, ['listen']) : activity = DSC.Activity(type = DSC.ActivityType.listening, name = txt)
+    if least_one(action, ['watch', 'video']) : activity = DSC.Activity(type = DSC.ActivityType.watching, name = txt)
+    if least_one(action, ['def', 'serv', 'bas', 'main']) : activity = "Default"
+    if activity is None:
+        activity = "Set activity to None"
+        await BOT.change_presence(activity = None)
+    else:
+        if txt is None or activity == "Default":
+            txt = str(len(BOT.guilds)) + ' servers'
+            activity = DSC.Activity(type = DSC.ActivityType.watching, name = txt)
+        await BOT.change_presence(activity = activity)
+    if ctx: await rt_ok(ctx, activity)
+    return activity
 
 
 @BOT.command(name = "kill", aliases = ["killtask", "end", "endtask", "destroy", "shutdown", "exit"])
 @CMDS.is_owner()
 async def kill(ctx: CTX = None) -> None:
-  if ctx: await ctx.message.add_reaction("✅")
-  await END()
+    if ctx: await ctx.message.add_reaction("✅")
+    await END()
 
 
 
@@ -506,21 +510,21 @@ async def on_command_error(ctx: CTX, error):
 
 @BOT.event
 async def on_connect():
-  print("\nConnecting\n")
-  del_env("TOKEN")
-  del_i()
+    print("\nConnecting\n")
+    del_env("TOKEN")
+    del_i()
 
 
 @BOT.event
 async def on_ready():
-  print("\nConnected\n\n")
-  await activity(None, "Default")
-  await GetVIPs()
+    print("\nConnected\n\n")
+    await activity(None, "Default")
+    await GetVIPs()
 
 
 @BOT.event
 async def on_disconnect():
-  print("\nDisconnected")
+    print("\nDisconnected")
 
 
 @with_data("Credentials/GAMMA_TOKEN.txt", {"TOKEN": 0})
