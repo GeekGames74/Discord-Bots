@@ -4,17 +4,15 @@ Aggregate edt_event.Event in a calendar structure.
 
 
 from edt_event import *
+from edt_range import *
 
 
 
 class Calendar:
     def __init__(self, name: str, source: str = ""):
-        self._name = name
-        if source.endswith(".ics"):
-            self.get_from_file(source)
-        else:
-            self.url = source
-            self.update()
+        self.aliases = [name]
+        self.url = source if source.startswith("http") else ""
+        self.events = get_from_source(source)
 
 
 
@@ -24,22 +22,16 @@ class Calendar:
 
 
 
-    def get_from_file(self, file: str) -> None:
-        """Retreive events in the specified ics file (path must be absolute)."""
-        self.events = get_from_file(file)
-
-
-
-    def get_from_url(self, url: str) -> None:
-        """Download ics file from url and extract data from temp file."""
-        self.events = get_from_url(url)
+    def get_from_source(self, source: str) -> None:
+        """Get events from the given URL or file."""
+        self.events = get_from_source(source)
 
 
 
     def update(self) -> str:
         """Update the calendar if it has a url to anchor to."""
         if self.url != "":
-            self.get_from_url(self.url)
+            self.get_from_source(self.url)
 
 
 
@@ -63,8 +55,4 @@ class Calendar:
 
     def find_next(self, time: any) -> Event:
         """Returns next event (relative to <time>)."""
-        events = self.events
-        sort_by_time(events)
-        for e in events:
-            if e > time:
-                return e
+        return find_next(self.events, time)

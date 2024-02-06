@@ -71,9 +71,9 @@ def check_file(name: str) -> str:
     """Tries to resolve given path."""
     path = local_path() + name
     name.replace("/", os.sep)
-    if os.path.isfile(f"{path}{os.sep}{name}"):
-        return f"{path}{os.sep}{name}"
-    raise FileNotFoundError(f"{name} was not found in current directory")
+    if os.path.isfile(f"{path}"):
+        return f"{path}"
+    raise FileNotFoundError(f"{path} was not found in current directory")
 
 
 def with_data(where: str, data: any):
@@ -527,7 +527,7 @@ async def on_disconnect():
     print("\nDisconnected")
 
 
-@with_data("Credentials/GAMMA_TOKEN.txt", {"TOKEN": 0})
+@with_data("/Credentials/GAMMA_TOKEN.txt", {"TOKEN": 0})
 def RUN(TOKEN):
     asyncio_apply()
     BOT.run(TOKEN, reconnect = True)

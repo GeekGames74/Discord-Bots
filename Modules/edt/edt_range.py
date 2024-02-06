@@ -6,35 +6,18 @@ Target destination : Discord Bot.
 
 
 
-import os
-import json
 import calendar
-from edt_calendar import *
-from edt_event import *
 from datetime import datetime as dt
 from datetime import timedelta as td
 
 
 
-EDT = "edt.json"
-DATA = []
-
-
-
-def load(path: str) -> None:
-    path += EDT
-    if not os.path.exists(path): return
-    global DATA
-    with open(path, 'r', encoding = 'UTF-8') as file:
-        DATA = json.load(file)
-
-
-
-def save(path: str) -> None:
-    if len(DATA) == 0: return
-    path += EDT
-    with open(path, 'w', encoding = 'UTF-8') as file:
-        json.dump(DATA, file)
+def return_dt(time: any) -> dt:
+    """Convert any to dt attribute."""
+    if  isinstance(time, dt): return time
+    elif isinstance(time, str):
+        return dt.strptime(time, "%Y-%m-%d %H:%M:%S%z")
+    else: raise TypeError(f"Invalid or Unsupported type : '{type(time)}'")
 
 
 
