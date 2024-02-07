@@ -4,7 +4,7 @@ Aggregate edt_event.Event in a calendar structure.
 
 
 from edt_event import *
-from edt_range import *
+from edt_table import *
 
 
 
@@ -36,20 +36,20 @@ class Calendar:
 
 
     def get_all_during(self, time: any) -> list[Event]:
-        """Returns all events in range (keeps order)."""
-        return [e for e in self.events if e.is_during(time)]
+        """Returns all events that surround the time(keeps order)."""
+        return get_all_during(self.events, time)
 
 
 
     def get_all_intersect(self, start: any, end: any) -> list[Event]:
-        """Returns all events in range (keeps order)."""
-        return [e for e in self.events if e.is_intersect(start, end)]
+        """Returns all events that share the time range (keeps order)."""
+        return get_all_intersect(self.events, start, end)
 
 
 
     def get_all_within(self, start: any, end: any) -> list[Event]:
-        """Returns all events in range (keeps order)."""
-        return [e for e in self.events if e.is_within(start, end)]
+        """Returns all events contained within the time range (keeps order)."""
+        return get_all_within(self.events, start, end)
 
 
 

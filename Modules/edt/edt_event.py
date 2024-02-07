@@ -114,6 +114,25 @@ class Event:
 
 
 
+def get_all_during(events: list[Event], time: any) -> list[Event]:
+    """Returns all events that surround the time(keeps order)."""
+    return [e for e in events if e.is_during(time)]
+
+
+
+def get_all_intersect(events: list[Event], start: any, end: any) -> list[Event]:
+    """Returns all events that share the time range (keeps order)."""
+    return [e for e in events if e.is_intersect(start, end)]
+
+
+
+def get_all_within(events: list[Event], start: any, end: any) -> list[Event]:
+    """Returns all events contained within the time range (keeps order)."""
+    return [e for e in events if e.is_within(start, end)]
+
+
+
+
 def create_event(event: icalendar.Event) -> Event:
     """Create an Event object using an ICAL event."""
     attribs = ["summary", "dtstart", "dtend", "location", "description"]

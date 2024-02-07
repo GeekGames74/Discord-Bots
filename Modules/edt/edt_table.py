@@ -6,6 +6,7 @@ Target destination : Discord Bot.
 
 
 
+from edt_event import *
 import calendar
 from datetime import datetime as dt
 from datetime import timedelta as td
@@ -21,7 +22,7 @@ def return_dt(time: any) -> dt:
 
 
 
-def hours_of_day(time: any, start: int, end: int, offset: float) -> list:
+def hours_of_day(time: any, start: int, end: int, offset: float) -> list[dt]:
     """Returns a list of all hours of the day between [start;end[ + offset (all args are hour)."""
     assert 0 <= start <= end <= 24
     t = return_dt(time)
@@ -34,7 +35,7 @@ def hours_of_day(time: any, start: int, end: int, offset: float) -> list:
 
 
 
-def days_of_week(time: any, start: int, end: int, offset: float) -> list:
+def days_of_week(time: any, start: int, end: int, offset: float) -> list[dt]:
     """Returns a list of all days of the week between [start;end[ + offset (all args are day)."""
     assert 1 <= start <= end <= 7
     t = return_dt(time)
@@ -100,3 +101,27 @@ def find_week_year(time: any, nb: int) -> dt:
     t = dt(time.year, 1, 4)
     assert 1 <= nb <= dt(t.year, 12, 28).isocalendar()[1]
     return t + td(weeks = nb - 1) - td(days = t.weekday())
+
+
+
+def create_table(week: list[dt], start: int, end: int, offset: float) -> list[list[dt]]:
+    """Create the week timetable from weekdays dt and using hours_of_day function."""
+    return [hours_of_day(d, start, end, offset) for d in week]
+
+
+
+def cross_time_day(table: list[dt], events: list[Event]) -> list[list[Event]]:
+    """Generate timetable made from a list of times and a list of events."""
+    table2d = []
+    for t in table:
+        table2d.append(get_all_during(events, t))
+    return table2d
+
+
+
+def cross_time_week(table: list[list[dt]], events: list[Event]) -> list[list[list[Event]]]:
+    """Generate timetable made from a list of times and a list of events."""
+    table3d = []
+    for t1 in table:
+        table3d.append([get_all_during(events, t2) for t2 in t1])
+    return table3d
