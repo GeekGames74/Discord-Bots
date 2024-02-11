@@ -1,5 +1,8 @@
 """
-Module to import events from an ics file or an url
+Import events from .ics file or a download url.
+Includes edt_event.Event custom class.
+Includes finding dates relative to a dt position.
+Does not include displaying.
 """
 
 
@@ -7,12 +10,20 @@ Module to import events from an ics file or an url
 import os
 import requests
 import icalendar
-import json
+import calendar
 from datetime import datetime as dt
+from datetime import timedelta as td
+from datetime import timezone as tz
 
 
 
-TEMP = "edt.ics"
+TEMPFILENAME = "edt_temp.ics"
+
+
+
+def dt_now() -> dt:
+    """Return current dt in a tz-aware format."""
+    return dt.now(tz.utc)
 
 
 
@@ -25,6 +36,8 @@ def return_dt(time: any, attrib: str = "start") -> dt:
         return dt.strptime(time, "%Y-%m-%d %H:%M:%S%z")
     elif isinstance(time, icalendar.vDDDTypes):
         return time.dt
+    elif isinstance(time, Event):
+        return getattr(time, attrib)
     else: raise TypeError(f"Invalid or Unsupported type : '{type(time)}'")
 
 
@@ -38,6 +51,12 @@ def get_location(loc: str) -> list[str]:
 
 
 
+##########################################################################
+# Event Class
+##########################################################################
+
+
+
 class Event:
     def __init__(self, summary: str, start: any, end: any, location: str, description: str) -> None:
         self.summary = summary
@@ -45,41 +64,21 @@ class Event:
         self.end = return_dt(end, "end")
         self.location = get_location(location)
         self.description = description
-        self.professor = self.get_prof()
-        self.subject = self.get_subject()
 
 
 
-    def to_string(self) -> str:
+    def to_string(self, sep: str = "\n") -> str:
         """Return a string representation of the event."""
-        return f"{self.summary}\n" \
-            f"Start: {self.start}\n" \
-            f"End: {self.end}\n" \
-            f"Location: {self.location}\n" \
-            f"Professor: {self.professor}\n" \
-            f"Subject: {self.subject}\n"
+        return f"{self.summary}{sep}" \
+            f"Start: {self.start}{sep}" \
+            f"End: {self.end}{sep}" \
+            f"Location: {self.location}"
 
 
 
-    def print_self(self) -> None:
+    def print_self(self, sep: str = "\n") -> None:
         """Print all attributes of the object in a formatted manner."""
-        print(self.to_string())
-
-
-
-    def get_prof(self) -> list[str]:
-        """Get professors from the event description."""        
-        desc = self.description
-        while "\n\n" in desc:
-            desc = desc.replace("\n\n", "\n")
-        desc = desc.split("\n")
-        profs = []
-        for i in desc:
-            if not i.isupper(): continue
-            allow = "ABCDEFGHIJKLMNOPQRSTUVWXYZ -ÉÂÇÈÊÔÙÀÍÎÏÙÚÑÖÜ"
-            if not all([c in allow for c in i]): continue
-            profs.append(i)
-        return profs
+        print(self.to_string(sep) + "\n")
 
 
 
@@ -105,12 +104,26 @@ class Event:
         t2 = return_dt(time2)
         assert t1 < t2
         return t1 <= self.start and self.end <= t2
-        
+    
 
 
-    def get_subject(self) -> str:
-        """Get school subject of the event."""
-        return ""
+    def get_duration(self) -> td:
+        """Return the duration of the Event as a timedelta object."""
+        return self.end - self.start
+
+
+
+def convert_event(event: icalendar.Event) -> Event:
+    """Create an Event object using an ICAL event."""
+    attribs = ["summary", "dtstart", "dtend", "location", "description"]
+    attribs = [event[i] for i in attribs]
+    return Event(*attribs)
+
+
+
+##########################################################################
+# list[Event] Functions
+##########################################################################
 
 
 
@@ -132,15 +145,6 @@ def get_all_within(events: list[Event], start: any, end: any) -> list[Event]:
 
 
 
-
-def create_event(event: icalendar.Event) -> Event:
-    """Create an Event object using an ICAL event."""
-    attribs = ["summary", "dtstart", "dtend", "location", "description"]
-    attribs = [event[i] for i in attribs]
-    return Event(*attribs)
-
-
-
 def sort_by_time(events: list[Event]) -> list[Event]:
     """Sort list by start time."""
     return sorted(events, key = lambda e: e.start)
@@ -148,12 +152,13 @@ def sort_by_time(events: list[Event]) -> list[Event]:
 
 
 def find_next(events: list[Event], time: any) -> Event:
-        """Returns next event (relative to <time>)."""
+        """Returns next event (relative to <time>), or None"""
         t = return_dt(time)
-        es = sort_by_time(events)
-        for e in es:
-            if e > t:
-                return e
+        events_sorted = sort_by_time(events)
+        for event in events_sorted:
+            if event.start > t:
+                return event
+        return None
 
 
 
@@ -161,27 +166,23 @@ def get_from_ics(path: str) -> list[Event]:
         """Retreive events in the specified ics file (path must be absolute)."""
         with open(path, 'r', encoding = 'UTF-8') as file:
             cal = icalendar.Calendar.from_ical(file.read())
-        events = [create_event(e) for e in cal.walk()
+        events = [convert_event(e) for e in cal.walk()
                   if isinstance(e, icalendar.Event)]
         return events
-
-
-
-def get_from_json(path: str) -> list[Event]:
-    """Get a list of Events from a JSON file."""
-    with open(path, 'r', encoding = 'UTF-8') as file:
-        return json.load(file)
 
 
 
 def get_from_url(url: str) -> list[Event]:
     """Download ics file from url and extract data from temp file."""
     response = requests.get(url)
-    if os.path.exists(TEMP):
-        os.remove(TEMP)
-    with open(TEMP, 'xb') as file:
+    if os.path.exists(TEMPFILENAME):
+        os.remove(TEMPFILENAME)
+    with open(TEMPFILENAME, 'xb') as file:
         file.write(response.content)
-    return get_from_ics(TEMP)
+    events = get_from_ics(TEMPFILENAME)
+    if os.path.exists(TEMPFILENAME):
+        os.remove(TEMPFILENAME)
+    return events
 
 
 
@@ -190,8 +191,6 @@ def get_from_source(source: str) -> list[Event]:
     path = os.path.dirname(os.path.realpath(__file__)) + "/"
     if source.endswith(".ics"):
         return get_from_ics(path + source)
-    elif source.endswith(".json"):
-        return get_from_json(path + source)
     elif source.startswith("http"):
         return get_from_url(source)
     else:
@@ -199,18 +198,194 @@ def get_from_source(source: str) -> list[Event]:
 
 
 
-def input_events() -> list[Event]:
-    """Ask user to enter a URL or local path of .ics file."""
-    source = input("Source of the data : ")
-    return get_from_source(source)
+##########################################################################
+# Relative DT Finder
+##########################################################################
+
+
+
+def find_day(time: any, offset: int) -> dt:
+    """Find the day relative to offset 0 (time.day)."""
+    time = return_dt(time)
+    time += td(days = offset)
+    return dt(time.year, time.month, time.day, second = 1, tzinfo = time.tzinfo)
+
+
+
+def find_day_month(time: any, nb: int) -> dt:
+    """
+    Find the absolute day dt object from an input day nb, returns 00:00.
+    <time> can be either dt (any in month) or str (of dt).
+    """
+    time = return_dt(time)
+    t = dt(time.year, time.month, 1).replace(second = 1)
+    assert 1 <= nb <= calendar.monthrange(t.year, t.month)[1]
+    return t.replace(day = nb, tzinfo = time.tzinfo)
+
+
+
+def find_day_year(time: any, nb: int) -> dt:
+    """
+    Find the absolute day dt object from an input day nb relative to year, returns 00:00.
+    <time> can be either dt (any in year), str (of dt), or int (year nb).
+    """
+    if isinstance(time, int):
+        time = dt(time, 1, 1)
+    time = return_dt(time)
+    t = dt(time.year, 1, 1).replace(second = 1, tzinfo = time.tzinfo)
+    assert 1 <= nb <= 365 + calendar.isleap(t.year)
+    return t + td(days = nb - 1)
+
+
+
+def find_week(time: any, offset: int) -> dt:
+    """Find the week relative to offset 0 (time.week)."""
+    time = return_dt(time)
+    time += td(weeks = offset)
+    return dt(time.year, time.month, time.day, second = 1, tzinfo = time.tzinfo) - td(days = time.weekday())
+
+
+
+def find_week_year(time: any, nb: int) -> dt:
+    """
+    Find the absolute week dt object from an input week nb, returns monday 00:00.
+    <time> can be either dt (any in year), str (of dt), or int (year nb).
+    """
+    if isinstance(time, int):
+        time = dt(time, 1, 4)
+    time = return_dt(time)
+    t = dt(time.year, 1, 4).replace(second = 1, tzinfo = time.tzinfo)
+    assert 1 <= nb <= dt(t.year, 12, 28).isocalendar()[1]
+    return t + td(weeks = nb - 1) - td(days = t.weekday())
+
+
+
+def find_any(msg: str, time: any) -> dt:
+    """
+    Return a datetime following user demand.
+    'w' or 'd' for what to find.
+    'm' or 'y' for absolute reference.
+    otherwise will use relative reference.
+    (can specify plus or minus with '+' or '-').
+    All of the above can be in any order.
+    """
+    t = return_dt(time)
+    msg = msg.lower()
+    n = "".join([c for c in msg if c.isdigit()])
+    nb = int(n) if n else 0
+    if "-" in msg: nb *= -1
+    absn = abs(nb) if nb != 0 else 1
+    d, w, m, y = "d" in msg, "w" in msg, "m" in msg, "y" in msg
+
+    if m: return find_day_month(t, absn)
+    if y: return find_day_year(t, absn) if d else find_week_year(t, absn)
+    return find_week(t, nb) if w else find_day(t, nb)
+
+
+
+##########################################################################
+# Table Initialisation
+##########################################################################
+
+
+
+def hours_of_day(time: any, start: int = 7, end: int = 20, offset: float = 0) -> list[dt]:
+    """Returns a list of all hours of the day between [start;end[ + offset (all args are hour)."""
+    assert 0 <= start <= end <= 24
+    t = return_dt(time)
+    t = t.replace(hour = 0, minute = 0, second = 1, microsecond = 0)
+    output = []
+    for i in range(start, end + 1):
+        hour = t + td(hours = i + offset)
+        output.append(hour)
+    return output
+
+
+
+def days_of_week(time: any, start: int = 1, end: int = 5, offset: float = 0) -> list[dt]:
+    """Returns a list of all days of the week between [start;end[ + offset (all args are day)."""
+    assert 1 <= start <= end <= 7
+    t = return_dt(time)
+    t = t.replace(hour = 0, minute = 0, second = 1, microsecond = 0) - td(days = t.weekday())
+    output = []
+    for i in range(start - 1, end):
+        day = t + td(days = i + offset)
+        output.append(day)
+    return output
+
+
+
+def create_table(week: list[dt], start: int = 7, end: int = 20, offset: float = 0) -> list[list[dt]]:
+    """Create the week timetable from weekdays dt and using hours_of_day function."""
+    return [hours_of_day(d, start, end, offset) for d in week]
+
+
+
+##########################################################################
+# Timetable Creation
+##########################################################################
+
+
+
+def cross_time_day(table: list[dt], events: list[Event]) -> list[list[Event]]:
+    """Generate timetable made from a list of times and a list of events."""
+    table2d = []
+    for t in table:
+        table2d.append(get_all_during(events, t))
+    return table2d
+
+
+
+def cross_time_week(table: list[list[dt]], events: list[Event]) -> list[list[list[Event]]]:
+    """Generate timetable made from a 2d list of times and a list of events."""
+    table3d = []
+    for t1 in table:
+        table3d.append([get_all_during(events, t2) for t2 in t1])
+    return table3d
+
+
+
+##########################################################################
+# Main
+##########################################################################
+
+
+
+def main1() -> list[Event]:
+    source = input("Filename or url : ")
+    EVENTS = get_from_source(source)
+    return sort_by_time(EVENTS)
+
+
+
+def main2(EVENTS: list[Event], cmd: str = None) -> str:
+    if not cmd: cmd = input("cmd : ")
+    now = dt_now()
+
+    # Display next event
+    if cmd == "nxt":
+        event = find_next(EVENTS, now)
+        if event: event.print_self()
+    
+    # Display timetable
+    elif cmd[0] == ">":
+        t = find_any(cmd[1:], now)
+        if "w" in cmd:
+            week = days_of_week(t)
+            table = create_table(week, 7, 20, 0)
+            events = cross_time_week(table, EVENTS)
+            for d in events:
+                [e[0].print_self("    ") if e else "//    " for e in d]
+                print("\n")
+        else:
+            day = hours_of_day(t)
+            events = cross_time_day(day, EVENTS)
+            [e[0].print_self("\n") if e else "//\n" for e in events]
+    
+    else: return cmd
 
 
 
 if __name__ == "__main__":
-    DATA = input_events()
-    DATA = sort_by_time(DATA)
-    start = input("start : ")
-    end = input("end : ")
-    i1 = int(start) if start.isdigit() else 0
-    i2 = int(end) if end.isdigit() else len(DATA)-1
-    [e.print_self() for e in DATA[i1:i2+1]]
+    main2(main1())
+    
