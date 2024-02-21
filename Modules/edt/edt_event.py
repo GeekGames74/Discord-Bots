@@ -260,14 +260,15 @@ def find_week_year(time: any, nb: int) -> dt:
 
 
 
-def find_any(msg: str, time: any) -> dt:
+def find_any(msg: str, time: any) -> (dt, bool):
     """
-    Return a datetime following user demand.
+    Return a datetime [0] following user demand.
     'w' or 'd' for what to find.
     'm' or 'y' for absolute reference.
     otherwise will use relative reference.
     (can specify plus or minus with '+' or '-').
     All of the above can be in any order.
+    Returned [1] bool is if data required is week.
     """
     t = return_dt(time)
     msg = msg.lower()
@@ -277,9 +278,9 @@ def find_any(msg: str, time: any) -> dt:
     absn = abs(nb) if nb != 0 else 1
     d, w, m, y = "d" in msg, "w" in msg, "m" in msg, "y" in msg
 
-    if m: return find_day_month(t, absn)
-    if y: return find_day_year(t, absn) if d else find_week_year(t, absn)
-    return find_week(t, nb) if w else find_day(t, nb)
+    if m: return (find_day_month(t, absn), False)
+    if y: return (find_day_year(t, absn), False) if d else (find_week_year(t, absn), True)
+    return (find_week(t, nb), True) if w else (find_day(t, nb), False)
 
 
 
@@ -289,13 +290,13 @@ def find_any(msg: str, time: any) -> dt:
 
 
 
-def hours_of_day(time: any, start: int = 7, end: int = 20, offset: float = 0) -> list[dt]:
-    """Returns a list of all hours of the day between [start;end[ + offset (all args are hour)."""
+def hours_of_day(time: any, start: int = 6, end: int = 18, offset: float = 0) -> list[dt]:
+    """Returns a list of all hours of the day between ]start;end] + offset (all args are hour)."""
     assert 0 <= start <= end <= 24
     t = return_dt(time)
     t = t.replace(hour = 0, minute = 0, second = 1, microsecond = 0)
     output = []
-    for i in range(start, end + 1):
+    for i in range(start, end):
         hour = t + td(hours = i + offset)
         output.append(hour)
     return output
@@ -303,7 +304,7 @@ def hours_of_day(time: any, start: int = 7, end: int = 20, offset: float = 0) ->
 
 
 def days_of_week(time: any, start: int = 1, end: int = 5, offset: float = 0) -> list[dt]:
-    """Returns a list of all days of the week between [start;end[ + offset (all args are day)."""
+    """Returns a list of all days of the week between [start;end] + offset (all args are day)."""
     assert 1 <= start <= end <= 7
     t = return_dt(time)
     t = t.replace(hour = 0, minute = 0, second = 1, microsecond = 0) - td(days = t.weekday())
@@ -315,7 +316,7 @@ def days_of_week(time: any, start: int = 1, end: int = 5, offset: float = 0) -> 
 
 
 
-def create_table(week: list[dt], start: int = 7, end: int = 20, offset: float = 0) -> list[list[dt]]:
+def create_table(week: list[dt], start: int = 6, end: int = 18, offset: float = 0) -> list[list[dt]]:
     """Create the week timetable from weekdays dt and using hours_of_day function."""
     return [hours_of_day(d, start, end, offset) for d in week]
 
@@ -351,15 +352,16 @@ def cross_time_week(table: list[list[dt]], events: list[Event]) -> list[list[lis
 
 
 
-def main1() -> list[Event]:
-    source = input("Filename or url : ")
+def main(source: str = None) -> list[Event]:
+    if not source: source = input("Filename or url : ")
     EVENTS = get_from_source(source)
     return sort_by_time(EVENTS)
 
 
 
-def main2(EVENTS: list[Event], cmd: str = None) -> str:
-    if not cmd: cmd = input("cmd : ")
+if __name__ == "__main__":
+    EVENTS = main()
+    cmd = input("cmd : ")
     now = dt_now()
 
     # Display next event
@@ -368,24 +370,17 @@ def main2(EVENTS: list[Event], cmd: str = None) -> str:
         if event: event.print_self()
     
     # Display timetable
-    elif cmd[0] == ">":
-        t = find_any(cmd[1:], now)
-        if "w" in cmd:
-            week = days_of_week(t)
-            table = create_table(week, 7, 20, 0)
+    else:
+        t = find_any(cmd, now)
+        if t[1]:
+            week = days_of_week(t[0])
+            table = create_table(week, 6, 19, 0)
             events = cross_time_week(table, EVENTS)
             for d in events:
-                [e[0].print_self("    ") if e else "//    " for e in d]
+                [e[0].print_self("    ") if e else print("//\n") for e in d]
                 print("\n")
         else:
-            day = hours_of_day(t)
+            day = hours_of_day(t[0])
             events = cross_time_day(day, EVENTS)
-            [e[0].print_self("\n") if e else "//\n" for e in events]
-    
-    else: return cmd
-
-
-
-if __name__ == "__main__":
-    main2(main1())
+            [e[0].print_self("\n") if e else print("//\n") for e in events]
     
