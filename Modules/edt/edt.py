@@ -125,10 +125,11 @@ def get_event_priority(event: Event) -> float:
     Higher number is better priority.
     """
     prio = 1
-    if is_eval(event): prio *= 5
+    if is_eval(event): prio = 5
     prio /= event.get_duration().seconds/3600
     prio *= len(event.location) * 0.25 + 0.1
     prio *= len(get_profs(event)) * 0.25 + 0.1
+    print(event.to_string("   "), prio, get_profs(event))
     return prio
 
 
@@ -142,7 +143,7 @@ def prioritize(events: list) -> any:
     if not events: return None
     if all([isinstance(e, Event) for e in events]):
         events = sorted(events, key=get_event_priority)
-        return events[0]
+        return events[-1]
     elif all([isinstance(e, list) for e in events]):
         return [prioritize(e) for e in events]
     else: raise TypeError("Expected only Events in nested list.")
@@ -265,6 +266,14 @@ def format_details(events: list[Event], heights: list[int]) -> list[str]:
 
 
 
+def interject(l: list, sep: any) -> list:
+    """Insert `sep` between each element of `l`, returning the modified list."""
+    for  i in range(len(l)):
+        l.insert(i*2+1, sep)
+    return l
+    
+
+
 def format_lists(*args):
     """Format the lists in preparation for displaying."""
     output = []
@@ -279,6 +288,65 @@ def format_lists(*args):
 
 
 
+def truncate_one(subjects: list[str]) -> (int, int):
+    """Return index at which a corresponding timetable should be truncated (by slicing)."""
+    early, late = 0, len(subjects)
+    for i in range(len(subjects)):
+        if subjects[i] and not subjects[i].isspace():
+            early = i
+            break
+    for i in range(len(subjects)-1, -1, -1):
+        if subjects[i] and not subjects[i].isspace():
+            late = i+1
+            break
+    return (early, late)
+
+
+
+def truncate_all(*args: list[str]) -> (int, int):
+    """Return min and max truncating to include all information in the timetable."""
+    mins = [truncate_one(arg)[0] for arg in args]
+    maxs = [truncate_one(arg)[1] for arg in args]
+    return (min(mins), max(maxs))
+
+
+
+def generic_day(events: list[Event], hours: list[dt], offset: int = 0) -> list[list]:
+    """Generate timetable for the day (with generic parameters)."""
+    times = format_times(hours, offset)
+    day_events = cross_time_day(hours, events)
+    filtered = prioritize(day_events)
+    heights = get_heights(filtered)
+    subjects = format_subjects(filtered, heights)
+    details = format_details(filtered, heights)
+    format = format_lists(times, TABLESEPS[0], subjects, TABLESEPS[2], details)
+    trunc = truncate_one(subjects)
+    output = format[trunc[0]:trunc[1]]
+    return output
+
+
+
+def generic_week(events: list[Event], hours: list[list[dt]], offset: int = 0) -> list[list]:
+    """Generate timetable for the week (with generic parameters)."""
+    times = format_times(hours[0], offset)
+    week_events = cross_time_week(hours, events)
+    filtered = prioritize(week_events)
+    heights = [get_heights(day) for day in filtered]
+    subjects = [format_subjects(day, h) for day, h in zip(filtered, heights)]
+    columns = interject(subjects, TABLESEPS[1])
+    format = format_lists(times, TABLESEPS[0], *columns)
+    trunc = truncate_all(*subjects)
+    output = format[trunc[0]:trunc[1]]
+    return output
+
+
+
+def timetable_tostring(table: list[list], ySep: str = "\n", xSep: str = "") -> str:
+    """Convert timetable into string representation."""
+    return ySep.join([xSep.join(row) for row in table])
+
+
+
 ##########################################################################
 # Main
 ##########################################################################
@@ -287,14 +355,8 @@ def format_lists(*args):
 
 if __name__ == '__main__':
     EVENTS = main()
-    t = find_any("yw12", dt_now())[0] + td(3)
-    #t = dt_now()
-    table = hours_of_day(t)
-    times = format_times(table, 1)
-    day = cross_time_day(table, EVENTS)
-    prio = prioritize(day)
-    heights = get_heights(prio)
-    subjects = format_subjects(prio, heights)
-    details = format_details(prio, heights)
-    format = format_lists(times, TABLESEPS[0], subjects, TABLESEPS[2], details)
-    print("\n".join(["".join(line) for line in format]))
+    t = dt_now()
+    days = days_of_week(t)
+    hours = create_table(days)
+    table = generic_week(EVENTS, hours, 1)
+    print(timetable_tostring(table))
