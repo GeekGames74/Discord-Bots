@@ -19,6 +19,7 @@ print("Started")
 
 
 import os
+import sys
 
 import discord as DSC
 from discord import *
@@ -32,6 +33,10 @@ from traceback import print_exception
 
 from math import factorial, pi
 from dice import roll as ROLL
+
+from Modules.basic import *
+sys.path.append(os.path.join(local_path(__file__), 'Modules'))
+from Modules.reactech import *
 
 
 
@@ -63,13 +68,9 @@ def del_i() -> None:
         else: i += 1
 
 
-def local_path() -> str:
-    return os.path.dirname(os.path.realpath(__file__))
-
-
 def check_file(name: str) -> str:
     """Tries to resolve given path."""
-    path = local_path() + name
+    path = local_path(__file__) + name
     name.replace("/", os.sep)
     if os.path.isfile(f"{path}"):
         return f"{path}"
@@ -143,121 +144,6 @@ async def GetVIPs() -> None:
     VIP["Volk"] = BOT.get_user(441684181932703744)
     VIP["Huli"] = BOT.get_user(481347795396329482)
     VIP["Galina"] = BOT.get_user(993173798515916902)
-
-
-# (Discord.Object, common_name, get_function) triplets
-TYPES = [(CTX, "ctx", None),
-         (DSC.Guild, "guild", "get_guild"),
-         (DSC.TextChannel, "channel", "get_channel"),
-         (DSC.VoiceChannel, "voice", "get_channel"),
-         (DSC.Message, "message", "get_partial_message"),
-         (DSC.User, "user", "get_user"),
-         (DSC.Role, "role", "get_role"),
-         (DSC.Member, "member", "get_member"),
-         (DSC.CategoryChannel, "category", "get_channel"),
-         (DSC.Emoji, "emoji", "get_emoji"),
-        ]
-
-
-def dsc_toid(input) -> any:
-    """Transform (input) to a valid object id (does not output which)."""
-    if isinstance(input, int): return input
-    if isinstance(input, str):
-        if input.isdigit(): return int(input)
-        check = any([input.startswith(i) for i in ["<#", "<&@", "<@"]])
-        if check and input.endswith(">"):
-            input = [i for i in input if i.isdigit()]
-            return int("".join(input))
-    return False
-
-
-def dsc_type(input) -> any:
-    """Declare if (input) is either a Discord.Object, an ID, or neither."""
-    for type_, name, call in TYPES:
-        if isinstance(input, type_): return name
-    if isinstance(input, int) or isinstance(input, str) and input.isdigit():
-        return "id"
-    else: return None
-
-
-def dsc_obj(input, obj: str, ctx = None) -> any:
-    """
-    Transform given input to requested Discord.Object
-    If unable to, raises error.
-    """
-    if dsc_type(input) == obj: return input
-    if dsc_toid(input):
-        input = dsc_toid(input)
-    if ctx is not None:
-        if obj == "message": ctx = dsc_obj(ctx, "channel")
-        else: ctx = dsc_obj(ctx, "guild")
-    if dsc_type(input) == "id":
-        if obj == "guild": return BOT.get_guild(int(input))
-        method = getattr(ctx, {name: call for (_, name, call) in TYPES}[obj], None)
-        return method(int(input))
-    elif dsc_type(input) == "ctx":
-        if obj in ["user", "member"]: return input.author
-        return getattr(input,obj)
-    raise TypeError(f"input {input} of type {type(input)} with request '{obj}' in dsc_obj()")
-
-
-
-##########################################################################
-# UTILITY
-##########################################################################
-
-
-
-def least_one(text, checkfor) -> bool:
-    """Check if there is at least one of (checkfor) in (text)."""
-    return any(i in text for i in checkfor)
-
-
-# Dynamic reaction general-use function to interract
-# neatly with user. Several parameters available.
-# Command uses exec() -> Be careful with usage.
-# Consider subfunctions for regularly-used cases.
-async def reactech(ctx, emoji: str, react: bool = True,
-                   recursive: int = -1, timeout: int = 3600, cond: str = "True",
-                   method: str = "pass", *args) -> None:
-    msg = dsc_obj(ctx, "message")
-    if react: await msg.add_reaction(emoji)
-    # Here the Bot waits for a reaction add that matches (check)
-    def check(reaction: DSC.Reaction, user: DSC.User) -> bool:
-        return (msg == reaction.message
-                and emoji == reaction.emoji and user != BOT.user
-                and eval(cond, globals(), locals()|{"ctx": ctx, "emoji": emoji}))
-    # (reaction) and (user) are kept fo method purposes
-    try:
-      reaction, user = await BOT.wait_for("reaction_add",
-                                           check = check, timeout = timeout)
-    except asyncio.TimeoutError: pass
-    except Exception as e: raise e
-    # If an user reacts, it executes the method
-    else:
-        try: await eval(method, globals(), locals())
-        except Exception as e: raise e
-        else:
-            # Able to repeat this process until Bot disconnect
-            if recursive != 0:
-                await reactech(msg, emoji, False, recursive-1,
-                               timeout, cond, method, *args)
-
-
-# REACTECH SUBFUNCTIONS
-# rt_er : send error : to user, recursive
-# rt_ok : confirm message : send once in channel, then to users
-
-async def rt_er(ctx, emoji: str, txt: str) -> None:
-    await reactech(ctx, emoji, True, -1, 300, "True", "user.send(*args)", txt)
-
-async def rt_ok(ctx, txt: str) -> None:
-    await reactech(ctx, "✅", True, -1, 3600, "True", "rt_ok_(msg,user,recursive,args)", txt)
-async def rt_ok_(msg: DSC.Message, user: DSC.User, recursive: int, txt: str) -> None:
-    if recursive == -1:
-        await msg.channel.send(*txt)
-    else:
-        await user.send(*txt)
 
 
 
@@ -350,13 +236,13 @@ async def calculate(ctx: CTX, *, txt: str) -> any:
     """
     result = main_math(txt)
     if result[1] == "error":
-        awaiter = [rt_er(ctx, "⁉️", result[0])]
+        awaiter = [rt_err(BOT, ctx, "⁉️", result[0])]
         if "d" in txt:
-            awaiter += [rt_er(ctx, "🆘", "Dice notation: https://pypi.org/project/dice/")]
+            awaiter += [rt_err(BOT, ctx, "🆘", "Dice notation: https://pypi.org/project/dice/")]
         if result[0] == "Mix":
-            await rt_er(ctx, "🚫", "Cannot use complex math (factorial, power, comparison) and dice at the same time!")
+            await rt_err(BOT, ctx, "🚫", "Cannot use complex math (factorial, power, comparison) and dice at the same time!")
         elif result[0] == "Attack":
-            await rt_er(ctx, "🚫", "Cannot use more than 2 Attack markers")
+            await rt_err(BOT, ctx, "🚫", "Cannot use more than 2 Attack markers")
         else:
             asyncio.gather(*awaiter)
     else:
@@ -368,7 +254,7 @@ async def msg_math(msg: DSC.message) -> None:
     result = main_math(msg.content, True)
     if result[1] != "error":
         emote = {"math":"🧮", "dice":"🎲", "attack":"⚔️"}[result[1]]
-        await reactech(msg, emote, True, 0, 3600, "True", f"msg.channel.send('{result[0]}')")
+        await reactech(BOT, msg, emote, True, 0, 3600, "True", f"msg.channel.send('{result[0]}')")
 
 
 
@@ -423,7 +309,7 @@ async def activity(ctx: CTX, action: str = "", *, txt = None) -> DSC.Activity:
             txt = str(len(BOT.guilds)) + ' servers'
             activity = DSC.Activity(type = DSC.ActivityType.watching, name = txt)
         await BOT.change_presence(activity = activity)
-    if ctx: await rt_ok(ctx, activity)
+    if ctx: await rt_ok(BOT, ctx, activity)
     return activity
 
 
@@ -496,7 +382,7 @@ async def on_command_error(ctx: CTX, error):
     for type_, i in errors:
         if isinstance(error, type_):
             print(type_,i)
-            await rt_er(ctx, i[0], i[1])
+            await rt_err(BOT, ctx, i[0], i[1])
             return
     print_exception(type(error), error, error.__traceback__)
 
@@ -511,15 +397,15 @@ async def on_command_error(ctx: CTX, error):
 @BOT.event
 async def on_connect():
     print("\nConnecting\n")
-    del_env("TOKEN")
     del_i()
 
 
 @BOT.event
 async def on_ready():
     print("\nConnected\n\n")
-    await activity(None, "Default")
+    # <LOAD HERE>
     await GetVIPs()
+    await activity(None, "Default")
 
 
 @BOT.event
@@ -534,6 +420,7 @@ def RUN(TOKEN):
 
 
 async def END():
+    # <SAVE HERE>
     print("\nDisconnecting\n")
     await BOT.close()
 

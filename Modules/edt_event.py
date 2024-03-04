@@ -1,9 +1,13 @@
 """
 Import events from .ics file or a download url.
 Includes edt_event.Event custom class.
-Includes finding dates relative to a dt position.
-Does not include displaying.
+Does not include displaying or saving.
 """
+
+
+##########################################################################
+# IMPORTS
+##########################################################################
 
 
 
@@ -17,14 +21,18 @@ from datetime import timezone as tz
 
 
 
-TEMPFILENAME = "edt_temp.ics"
+##########################################################################
+# GLOBAL AND FUNCTIONS
+##########################################################################
 
+
+
+TEMPFILENAME = "edt_temp.ics"
 
 
 def dt_now() -> dt:
     """Return current dt in a tz-aware format."""
     return dt.now(tz.utc)
-
 
 
 def return_dt(time: any, attrib: str = "start") -> dt:
@@ -41,7 +49,6 @@ def return_dt(time: any, attrib: str = "start") -> dt:
     else: raise TypeError(f"Invalid or Unsupported type : '{type(time)}'")
 
 
-
 def get_location(loc: str) -> list[str]:
     """Get lesson location."""
     location = loc.split(",")
@@ -52,7 +59,7 @@ def get_location(loc: str) -> list[str]:
 
 
 ##########################################################################
-# Event Class
+# EVENT CLASS
 ##########################################################################
 
 
@@ -66,7 +73,6 @@ class Event:
         self.description = description
 
 
-
     def to_string(self, sep: str = "\n") -> str:
         """Return a string representation of the event."""
         return f"{self.summary}{sep}" \
@@ -75,11 +81,9 @@ class Event:
             f"Location: {self.location}"
 
 
-
     def print_self(self, sep: str = "\n") -> None:
         """Print all attributes of the object in a formatted manner."""
         print(self.to_string(sep) + "\n")
-
 
 
     def is_during(self, time: any) -> bool:
@@ -87,7 +91,6 @@ class Event:
         t = return_dt(time)
         return self.start <= t <= self.end
     
-
 
     def is_intersect(self, time1: any, time2: any) -> bool:
         """Check if event's duration is shared with a time range."""
@@ -97,7 +100,6 @@ class Event:
         return not (t2 < self.start and self.end < t1)
     
 
-
     def is_within(self, time1: any, time2: any) -> bool:
         """Check if event's duration is contained within a time range."""
         t1 = return_dt(time1)
@@ -106,11 +108,18 @@ class Event:
         return t1 <= self.start and self.end <= t2
     
 
-
     def get_duration(self) -> td:
         """Return the duration of the Event as a timedelta object."""
         return self.end - self.start
+    
 
+    def to_json(self) -> dict:
+        """Convert the Event object into a JSON serializable dictionary."""
+        return  {"summary": self.summary,
+                 "description": self.description,
+                 "start": str(self.start),
+                 "end": str(self.end),
+                 "location": self.location}
 
 
 def convert_event(event: icalendar.Event) -> Event:
@@ -122,15 +131,14 @@ def convert_event(event: icalendar.Event) -> Event:
 
 
 ##########################################################################
-# list[Event] Functions
+# LIST[EVENT] FUNCTIONS
 ##########################################################################
 
 
 
 def get_all_during(events: list[Event], time: any) -> list[Event]:
-    """Returns all events that surround the time(keeps order)."""
+    """Returns all events that surround the time (keeps order)."""
     return [e for e in events if e.is_during(time)]
-
 
 
 def get_all_intersect(events: list[Event], start: any, end: any) -> list[Event]:
@@ -138,17 +146,14 @@ def get_all_intersect(events: list[Event], start: any, end: any) -> list[Event]:
     return [e for e in events if e.is_intersect(start, end)]
 
 
-
 def get_all_within(events: list[Event], start: any, end: any) -> list[Event]:
     """Returns all events contained within the time range (keeps order)."""
     return [e for e in events if e.is_within(start, end)]
 
 
-
 def sort_by_time(events: list[Event]) -> list[Event]:
     """Sort list by start time."""
     return sorted(events, key = lambda e: e.start)
-
 
 
 def find_next(events: list[Event], time: any) -> Event:
@@ -161,15 +166,12 @@ def find_next(events: list[Event], time: any) -> Event:
         return None
 
 
-
 def get_from_ics(path: str) -> list[Event]:
-        """Retreive events in the specified ics file (path must be absolute)."""
-        with open(path, 'r', encoding = 'UTF-8') as file:
-            cal = icalendar.Calendar.from_ical(file.read())
-        events = [convert_event(e) for e in cal.walk()
-                  if isinstance(e, icalendar.Event)]
-        return events
-
+    """Retreive events in the specified ics file (path must be absolute)."""
+    with open(path, 'r', encoding = 'UTF-8') as file:
+        cal = icalendar.Calendar.from_ical(file.read())
+    events = [convert_event(e) for e in cal.walk() if isinstance(e, icalendar.Event)]
+    return sort_by_time(events)
 
 
 def get_from_url(url: str) -> list[Event]:
@@ -182,12 +184,13 @@ def get_from_url(url: str) -> list[Event]:
     events = get_from_ics(TEMPFILENAME)
     if os.path.exists(TEMPFILENAME):
         os.remove(TEMPFILENAME)
-    return events
-
+    return sort_by_time(events)
 
 
 def get_from_source(source: str) -> list[Event]:
     """Get load function corresponding to source type."""
+    if isinstance(source, list) \
+        and all([isinstance(e, Event) for e in source]): return sort_by_time(source)
     path = os.path.dirname(os.path.realpath(__file__)) + "/"
     if source.endswith(".ics"):
         return get_from_ics(path + source)
@@ -197,113 +200,49 @@ def get_from_source(source: str) -> list[Event]:
         raise NotImplementedError(f"Source '{source}' has unsupported format.")
 
 
-
-##########################################################################
-# Relative DT Finder
-##########################################################################
-
-
-
-def find_day(time: any, offset: int) -> dt:
-    """Find the day relative to offset 0 (time.day)."""
-    time = return_dt(time)
-    time += td(days = offset)
-    return dt(time.year, time.month, time.day, second = 1, tzinfo = time.tzinfo)
-
-
-
-def find_day_month(time: any, nb: int) -> dt:
+def merge_events(*sources) -> list[Event]:
     """
-    Find the absolute day dt object from an input day nb, returns 00:00.
-    <time> can be either dt (any in month) or str (of dt).
+    Merge multiple event lists into one depending on their order
+    (First one is the most accurate, then descending order).
     """
-    time = return_dt(time)
-    t = dt(time.year, time.month, 1).replace(second = 1)
-    assert 1 <= nb <= calendar.monthrange(t.year, t.month)[1]
-    return t.replace(day = nb, tzinfo = time.tzinfo)
-
-
-
-def find_day_year(time: any, nb: int) -> dt:
-    """
-    Find the absolute day dt object from an input day nb relative to year, returns 00:00.
-    <time> can be either dt (any in year), str (of dt), or int (year nb).
-    """
-    if isinstance(time, int):
-        time = dt(time, 1, 1)
-    time = return_dt(time)
-    t = dt(time.year, 1, 1).replace(second = 1, tzinfo = time.tzinfo)
-    assert 1 <= nb <= 365 + calendar.isleap(t.year)
-    return t + td(days = nb - 1)
-
-
-
-def find_week(time: any, offset: int) -> dt:
-    """Find the week relative to offset 0 (time.week)."""
-    time = return_dt(time)
-    time += td(weeks = offset)
-    return dt(time.year, time.month, time.day, second = 1, tzinfo = time.tzinfo) - td(days = time.weekday())
-
-
-
-def find_week_year(time: any, nb: int) -> dt:
-    """
-    Find the absolute week dt object from an input week nb, returns monday 00:00.
-    <time> can be either dt (any in year), str (of dt), or int (year nb).
-    """
-    if isinstance(time, int):
-        time = dt(time, 1, 4)
-    time = return_dt(time)
-    t = dt(time.year, 1, 4).replace(second = 1, tzinfo = time.tzinfo)
-    assert 1 <= nb <= dt(t.year, 12, 28).isocalendar()[1]
-    return t + td(weeks = nb - 1) - td(days = t.weekday())
-
-
-
-def find_any(msg: str, time: any) -> (dt, bool):
-    """
-    Return a datetime [0] following user demand.
-    'w' or 'd' for what to find.
-    'm' or 'y' for absolute reference.
-    otherwise will use relative reference.
-    (can specify plus or minus with '+' or '-').
-    All of the above can be in any order.
-    Returned [1] bool is if data required is week.
-    """
-    t = return_dt(time)
-    msg = msg.lower()
-    n = "".join([c for c in msg if c.isdigit()])
-    nb = int(n) if n else 0
-    if "-" in msg: nb *= -1
-    absn = abs(nb) if nb != 0 else 1
-    d, w, m, y = "d" in msg, "w" in msg, "m" in msg, "y" in msg
-
-    if m: return (find_day_month(t, absn), False)
-    if y: return (find_day_year(t, absn), False) if d else (find_week_year(t, absn), True)
-    return (find_week(t, nb), True) if w else (find_day(t, nb), False)
+    all_events = [get_from_source(src) for src in sources if src]
+    starts_ends = [(events[0].start, events[-1].end) for events in all_events]
+    new_bounds = []
+    for start, end in starts_ends:
+        if not new_bounds:
+            new_bounds.append((start, end))
+            continue
+        if start <= new_bounds[-1][1]:
+            start = new_bounds[-1][1]
+        if start > end: new_bounds.append(None)
+        new_bounds.append((start, end))
+    merged = []
+    for events, bounds in zip(all_events, new_bounds):
+        if not bounds: continue
+        merged += get_all_within(events, *bounds)
+    return sort_by_time(merged)
 
 
 
 ##########################################################################
-# Table Initialisation
+# TABLE INITIALISATION
 ##########################################################################
 
 
 
-def hours_of_day(time: any, start: int = 6, end: int = 18, offset: float = 0) -> list[dt]:
-    """Returns a list of all hours of the day between ]start;end] + offset (all args are hour)."""
+def hours_of_day(time: any, start: int = 0, end: int = 24, offset: float = 0.5) -> list[dt]:
+    """Returns a list of all hours of the day between [start;end[ + offset (all args are hour)."""
     assert 0 <= start <= end <= 24
     t = return_dt(time)
     t = t.replace(hour = 0, minute = 0, second = 1, microsecond = 0)
     output = []
-    for i in range(start, end):
+    for i in range(start - 1, end - 1):
         hour = t + td(hours = i + offset)
         output.append(hour)
     return output
 
 
-
-def days_of_week(time: any, start: int = 1, end: int = 5, offset: float = 0) -> list[dt]:
+def days_of_week(time: any, start: int = 1, end: int = 7, offset: float = 0) -> list[dt]:
     """Returns a list of all days of the week between [start;end] + offset (all args are day)."""
     assert 1 <= start <= end <= 7
     t = return_dt(time)
@@ -315,15 +254,14 @@ def days_of_week(time: any, start: int = 1, end: int = 5, offset: float = 0) -> 
     return output
 
 
-
-def create_table(week: list[dt], start: int = 6, end: int = 18, offset: float = 0) -> list[list[dt]]:
+def create_table(week: list[dt], start: int = 0, end: int = 24, offset: float = 0.5) -> list[list[dt]]:
     """Create the week timetable from weekdays dt and using hours_of_day function."""
     return [hours_of_day(d, start, end, offset) for d in week]
 
 
 
 ##########################################################################
-# Timetable Creation
+# TIMETABLE CREATION
 ##########################################################################
 
 
@@ -336,7 +274,6 @@ def cross_time_day(table: list[dt], events: list[Event]) -> list[list[Event]]:
     return table2d
 
 
-
 def cross_time_week(table: list[list[dt]], events: list[Event]) -> list[list[list[Event]]]:
     """Generate timetable made from a 2d list of times and a list of events."""
     table3d = []
@@ -347,7 +284,7 @@ def cross_time_week(table: list[list[dt]], events: list[Event]) -> list[list[lis
 
 
 ##########################################################################
-# Main
+# MAIN
 ##########################################################################
 
 
@@ -358,29 +295,16 @@ def main(source: str = None) -> list[Event]:
     return sort_by_time(EVENTS)
 
 
-
 if __name__ == "__main__":
     EVENTS = main()
-    cmd = input("cmd : ")
-    now = dt_now()
+    time = dt_now() + td(8)
+    
+    days = days_of_week(time, 1, 5)
+    table = create_table(days, 7, 18)
+    week = cross_time_week(table, EVENTS)
+    [print("".join([e[0].to_string("   ") + "\n" if e else "//\n" for e in d]) + "") for d in week]
 
-    # Display next event
-    if cmd == "nxt":
-        event = find_next(EVENTS, now)
-        if event: event.print_self()
-    
-    # Display timetable
-    else:
-        t = find_any(cmd, now)
-        if t[1]:
-            week = days_of_week(t[0])
-            table = create_table(week, 6, 19, 0)
-            events = cross_time_week(table, EVENTS)
-            for d in events:
-                [e[0].print_self("    ") if e else print("//\n") for e in d]
-                print("\n")
-        else:
-            day = hours_of_day(t[0])
-            events = cross_time_day(day, EVENTS)
-            [e[0].print_self("\n") if e else print("//\n") for e in events]
-    
+    hours = hours_of_day(time, 7, 17)
+    day = cross_time_day(hours, EVENTS)
+    [h[0].print_self() if h else print("//\n") for h in day]
+

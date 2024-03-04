@@ -4,21 +4,36 @@ Includes USMB-Specific information (profs)
 """
 
 
+##########################################################################
+# IMPORTS
+##########################################################################
+
+
 
 from edt_event import *
-from discord.embeds import Embed
 import re
+
+
+
+##########################################################################
+# GLOBALS
+##########################################################################
+
 
 
 MAXLENTOTAL = 41
 SUBJECTLEN = 4
 MAXTEXTLEN = MAXLENTOTAL - SUBJECTLEN - 6
-# 00 |R000| .......
-# 00 |R000|R000|R000|
+# |1       |10       |20       |30       |40
+# 00 |R000| ...............................
+# 00 |R000|R000|R000|R000|R000|R000|R000| _
+WEEKDAYS_LANG = {
+    "fr": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"] ,
+    "en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] }
 
 EVALKEYWORDS = ["eval", "note", "moodle", "oral", "test", "ds", "devoir", "surv", "contr"]
 MAINSEPS = " |'-_\n/([{&#?!;:,."
-TABLESEPS = (" |", "|", "| ")
+TABLESEPS = (" |", "|", "| ", " _")
 SUBJECTSEPS = ("_", "\u0305_", "\u0305 ")
 
 MISSINGSUBJECT = SUBJECTLEN * "?"
@@ -26,9 +41,12 @@ FILLSUBJECT = " " + (SUBJECTLEN-2) * "." + " "
 EMPTYSUBJECT = SUBJECTLEN * " "
 
 
+class NoEventException(Exception): pass
+
+
 
 ##########################################################################
-# Data Calculation
+# DATA CALCULATION
 ##########################################################################
 
 
@@ -49,7 +67,6 @@ def get_profs(event: Event) -> list[str]:
     return profs
     
 
-
 def get_subject(event: Event) -> str:
     """Get subject from event summary"""
     summary = event.summary.upper()
@@ -61,6 +78,16 @@ def get_subject(event: Event) -> str:
         return "".join([c for c in txt if c in "RS0123456789"])
     else: return MISSINGSUBJECT
 
+
+def has_event(events: list) -> bool:
+    """Check if there is at least one event within the day."""
+    for i in range(len(events)):
+        if isinstance(events[i], str):
+            if events[i] and not events[i].isspace():
+                return True
+        if isinstance(events[i], Event):
+            if events[i]: return True
+    return False
 
 
 def event_equals(e1: Event, e2: Event) -> bool:
@@ -74,13 +101,11 @@ def event_equals(e1: Event, e2: Event) -> bool:
            get_subject(e1) == get_subject(e2)
 
 
-
 def is_eval(event: Event) -> bool:
     """Check if an event is evaluated / graded."""
     txt = event.summary + event.description
     txt = txt.lower().replace("é", "e")
     return any([kwd in txt for kwd in EVALKEYWORDS])
-
 
 
 def get_added_duration(events: list[Event], i: int) -> int:
@@ -90,7 +115,6 @@ def get_added_duration(events: list[Event], i: int) -> int:
     if i > len(events) - 1: return 1
     if not event_equals(events[i], events[i+1]): return 1
     return 1 + get_added_duration(events, i+1)
-
 
 
 def get_heights(events: list[Event]) -> list[int]:
@@ -114,7 +138,7 @@ def get_heights(events: list[Event]) -> list[int]:
 
 
 ##########################################################################
-# Short Formatting
+# SHORT FORMATTING
 ##########################################################################
 
 
@@ -129,9 +153,7 @@ def get_event_priority(event: Event) -> float:
     prio /= event.get_duration().seconds/3600
     prio *= len(event.location) * 0.25 + 0.1
     prio *= len(get_profs(event)) * 0.25 + 0.1
-    print(event.to_string("   "), prio, get_profs(event))
     return prio
-
 
 
 def prioritize(events: list) -> any:
@@ -142,18 +164,16 @@ def prioritize(events: list) -> any:
     """
     if not events: return None
     if all([isinstance(e, Event) for e in events]):
-        events = sorted(events, key=get_event_priority)
+        events = sorted(events, key = get_event_priority)
         return events[-1]
     elif all([isinstance(e, list) for e in events]):
         return [prioritize(e) for e in events]
     else: raise TypeError("Expected only Events in nested list.")
 
 
-
 def get_char_len(msg: list[str]) -> int:
     """Return the string length of a list."""
     return sum([len(i) for i in msg]) if msg else 0
-
 
 
 def strip_string(txt: str) -> str:
@@ -165,7 +185,6 @@ def strip_string(txt: str) -> str:
                 return strip_string(txt[:-i-1]) # then recursion
             return txt[:-i-1]
     return txt[:-1]
-
 
 
 def format_by_line(event: Event, lines: int) -> list[str]:
@@ -208,17 +227,22 @@ def format_by_line(event: Event, lines: int) -> list[str]:
             case 2: profs = profs[:-1] if len(profs) > 1 else [strip_string(profs[0])]
 
 
+def format_offset(offset: int) -> str:
+    """Return a formatted time offset."""
+    time = str(abs(offset)).zfill(2)
+    return "-" + time if offset < 0 else "+" + time
+
+
 
 ##########################################################################
-# General Formatting
+# GENERAL FORMATTING
 ##########################################################################
 
 
 
 def format_times(times: list[dt], offset: int = 0) -> list[str]:
     """Format list of times by the hour, with added offset."""
-    return [str(t.hour + offset).zfill(2) for t in times]
-
+    return [str((t + td(hours = offset)).hour).zfill(2) for t in times]
 
 
 def format_subjects(events: list[Event], heights: list[int]) -> list[str]:
@@ -245,7 +269,6 @@ def format_subjects(events: list[Event], heights: list[int]) -> list[str]:
     return subjects
 
 
-
 def format_details(events: list[Event], heights: list[int]) -> list[str]:
     """Format details using format_by_line and  a heights list."""
     details = []
@@ -261,23 +284,38 @@ def format_details(events: list[Event], heights: list[int]) -> list[str]:
 
 
 ##########################################################################
-# Concatenation Formatting
+# CONCATENATION FORMATTING
 ##########################################################################
 
 
 
-def interject(l: list, sep: any) -> list:
+def format_day(events: list[Event], sep: str = None) -> list[list]:
+    """Generate timetable for the day (with generic parameters)."""
+    heights = get_heights(events)
+    subjects = format_subjects(events, heights)
+    details = format_details(events, heights)
+    return [subjects, sep, details] if sep else [subjects + details]
+
+
+def format_week(events: list[list[Event]]) -> list[list[str]]:
+    """Generate timetable for the week (with generic parameters)."""
+    heights = [get_heights(day) for day in events]
+    subjects = [format_subjects(day, h) for day, h in zip(events, heights)]
+    return subjects
+
+
+def interject(anyList: list, sep: any) -> list:
     """Insert `sep` between each element of `l`, returning the modified list."""
-    for  i in range(len(l)):
+    l = anyList.copy()
+    for  i in range(len(l)-1):
         l.insert(i*2+1, sep)
     return l
     
 
-
-def format_lists(*args):
+def format_lists(*args: any) -> list[list]:
     """Format the lists in preparation for displaying."""
     output = []
-    height = max([len(args[x]) if isinstance(args[x], list) else 0 for x in range(len(args))])
+    height = max([len(a) if isinstance(a, list) else 0 for a in args])
     for y in range(height):
         output.append([])
         for x in range(len(args)):
@@ -287,10 +325,10 @@ def format_lists(*args):
     return output
 
 
-
 def truncate_one(subjects: list[str]) -> (int, int):
     """Return index at which a corresponding timetable should be truncated (by slicing)."""
     early, late = 0, len(subjects)
+    if not has_event(subjects): return (late, early)
     for i in range(len(subjects)):
         if subjects[i] and not subjects[i].isspace():
             early = i
@@ -302,43 +340,45 @@ def truncate_one(subjects: list[str]) -> (int, int):
     return (early, late)
 
 
-
 def truncate_all(*args: list[str]) -> (int, int):
     """Return min and max truncating to include all information in the timetable."""
-    mins = [truncate_one(arg)[0] for arg in args]
-    maxs = [truncate_one(arg)[1] for arg in args]
+    mins = [truncate_one(arg)[0] for arg in args if has_event(arg)]
+    maxs = [truncate_one(arg)[1] for arg in args if has_event(arg)]
     return (min(mins), max(maxs))
 
 
-
-def generic_day(events: list[Event], hours: list[dt], offset: int = 0) -> list[list]:
-    """Generate timetable for the day (with generic parameters)."""
-    times = format_times(hours, offset)
-    day_events = cross_time_day(hours, events)
-    filtered = prioritize(day_events)
-    heights = get_heights(filtered)
-    subjects = format_subjects(filtered, heights)
-    details = format_details(filtered, heights)
-    format = format_lists(times, TABLESEPS[0], subjects, TABLESEPS[2], details)
-    trunc = truncate_one(subjects)
-    output = format[trunc[0]:trunc[1]]
-    return output
+def change_truncation(trunc: (int, int), length: int, max_trunc: int = 0) -> (int, int):
+    """Change truncation based on maximum allowed."""
+    low, high = trunc[0], trunc[1]
+    while high-low <= max_trunc:
+        if low > 0: low -= 1
+        if high < length: high += 1
+    return (low, high)
 
 
+def empty_indexes(subjects: list[list[str]]) -> list[int]:
+    """Find all empty subjects and keep their indexes."""
+    return [i for i in range(len(subjects)) if not has_event(subjects[i])]
 
-def generic_week(events: list[Event], hours: list[list[dt]], offset: int = 0) -> list[list]:
-    """Generate timetable for the week (with generic parameters)."""
-    times = format_times(hours[0], offset)
-    week_events = cross_time_week(hours, events)
-    filtered = prioritize(week_events)
-    heights = [get_heights(day) for day in filtered]
-    subjects = [format_subjects(day, h) for day, h in zip(filtered, heights)]
-    columns = interject(subjects, TABLESEPS[1])
-    format = format_lists(times, TABLESEPS[0], *columns)
-    trunc = truncate_all(*subjects)
-    output = format[trunc[0]:trunc[1]]
-    return output
 
+def limit_empty(indexes: list[int], length: int) -> list[int]:
+    """Ensure week truncation does not create holes."""
+    def can_be_empty(indexes: list[int], index: int, length: int) -> bool:
+        if index not in indexes: return False
+        if index == 0 or index == length-1: return True
+        return can_be_empty(indexes, index-1, length) \
+            or can_be_empty(indexes, index+1, length)
+    return [i for i in indexes if can_be_empty(indexes, i, length)]
+
+
+def create_header(offset: int = 0, txt: str = "") -> list[str]:
+    """
+    Create header row of a table.
+    If txt is a lang code, will display weekdays.
+    """
+    time = format_offset(offset) if offset else "   "
+    days = WEEKDAYS_LANG[txt] if txt in WEEKDAYS_LANG else [txt]
+    return [time] + days
 
 
 def timetable_tostring(table: list[list], ySep: str = "\n", xSep: str = "") -> str:
@@ -348,15 +388,62 @@ def timetable_tostring(table: list[list], ySep: str = "\n", xSep: str = "") -> s
 
 
 ##########################################################################
-# Main
+# MAIN
 ##########################################################################
 
 
 
-if __name__ == '__main__':
-    EVENTS = main()
-    t = dt_now()
+def main_day(events: list[Event], time: any = dt_now(),
+         offset: int = 0, max_trunc: int = 5) -> list[list[str]]:
+    if not events: events = main()
+    t = return_dt(time)
+    hours = hours_of_day(t)
+    table = cross_time_day(hours, events)
+    prio = prioritize(table)
+    day = format_day(prio, TABLESEPS[2])
+    if not has_event(prio): raise NoEventException
+    times = format_times(hours, offset)
+    format = format_lists(times, TABLESEPS[0], *day)
+    trunc = truncate_one(day[0])
+    trunc = change_truncation(trunc, len(times), max_trunc)
+    formatted = format[trunc[0]:trunc[1]]
+    return formatted
+
+
+def main_week(events: list[Event], time: any = dt_now(),
+         offset: int = 0, lang: str = "", max_trunc: int = 5) -> list[list[str]]:
+    if not events: events = main()
+    t = return_dt(time)
     days = days_of_week(t)
     hours = create_table(days)
-    table = generic_week(EVENTS, hours, 1)
-    print(timetable_tostring(table))
+    table = cross_time_week(hours, events)
+    prio = prioritize(table)
+    week = format_week(prio)
+    empty = empty_indexes(week)
+    empty = limit_empty(empty, len(week))
+    week = [week[i] for i in range(len(week)) if i not in empty]
+    if not week: raise NoEventException
+    display = interject(week, TABLESEPS[1])
+    times = format_times(hours[0], offset)
+    format = format_lists(times, TABLESEPS[0], *display, TABLESEPS[1])
+    trunc = truncate_all(*week)
+    trunc = change_truncation(trunc, len(times), max_trunc)
+    formatted = format[trunc[0]:trunc[1]]
+    header = create_header(offset, lang)
+    header = [header[i] for i in range(len(header)) if i-1 not in empty]
+    new_header = interject(header, "  ")
+    return [new_header] + formatted
+
+
+if __name__ == '__main__':
+    EVENTS = main()
+    time = dt_now() + td(9)
+
+    week = main_week(EVENTS, time, 1, "fr")
+    print("\n" + timetable_tostring(week) + "\n")
+
+    day = main_day(EVENTS, time, 1)
+    print(timetable_tostring(day) + "\n")
+
+
+
