@@ -14,7 +14,7 @@ from discord.ext import commands as CMDS
 from discord.ext.commands import Context as CTX
 from discord.ext.commands import cog as COG
 from discord import Embed as EMBED
-from edt import *
+from edt_usmb import *
 import json
 from reactech import *
 from dsc_converter import dsc_obj
@@ -149,12 +149,13 @@ def find_any(msg: str, time: any) -> (dt, bool):
 
 class Schedule:
     def __init__(self, names, url: str = "", file_path: str = None,
-                 events: list[Event] = None) -> None:
+                 events: list[UsmbEvent] = None) -> None:
         if isinstance(names, str): self.names = [names]
         else: self.names = names
         self.events = []
-        if events and all([isinstance(e, json) for e in events]):
+        if events and all([isinstance(e, dict) for e in events]):
             events = [Event(**e) for e in events]
+        self.events = convert_to_usmb(events)
         self.url = url
         if file_path: self.populate_events(file_path)
         else: self.populate_events()
@@ -201,7 +202,8 @@ class Schedule:
         elif isinstance(sources, str): sources = [sources]
         # Here a ConnectionError will happen if the website is offline
         # (during the night) -> Remember to handle in the caller !
-        self.events = merge_events(self.url, sources, self.events)
+        self.events = convert_to_usmb(
+            merge_events(self.url, sources, self.events))
         self.date = dt_now()
     
 

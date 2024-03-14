@@ -66,11 +66,13 @@ def get_location(loc: str) -> list[str]:
 
 class Event:
     def __init__(self, summary: str, start: any, end: any, location: str, description: str) -> None:
-        self.summary = summary
+        self.summary = summary or ""
+        if not start: raise ValueError('Cannot create Event with no start')
+        if not end: raise ValueError('Cannot create Event with no end')
         self.start = return_dt(start, "start")
         self.end = return_dt(end, "end")
-        self.location = get_location(location)
-        self.description = description
+        self.location = get_location(location) or []
+        self.description = description or ""
 
 
     def to_string(self, sep: str = "\n") -> str:
@@ -125,7 +127,7 @@ class Event:
 def convert_event(event: icalendar.Event) -> Event:
     """Create an Event object using an ICAL event."""
     attribs = ["summary", "dtstart", "dtend", "location", "description"]
-    attribs = [event[i] for i in attribs]
+    attribs = [event.get(i, None) for i in attribs]
     return Event(*attribs)
 
 

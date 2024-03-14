@@ -1,6 +1,6 @@
 """
 Saving and displaying of edt_event.Event objects.
-Includes USMB-Specific information (profs)
+Includes USMB-Specific information, in the UsmbEvent class
 """
 
 
@@ -51,9 +51,8 @@ class NoEventException(Exception): pass
 
 
 
-def get_profs(event: Event) -> list[str]:
-    """Get professors from the event description."""        
-    desc = event.description
+def get_profs(desc: str) -> list[str]:
+    """Get professors from the event description."""
     while "\n\n" in desc:
         desc = desc.replace("\n\n", "\n")
     desc = desc.split("\n")
@@ -67,9 +66,9 @@ def get_profs(event: Event) -> list[str]:
     return profs
     
 
-def get_subject(event: Event) -> str:
-    """Get subject from event summary"""
-    summary = event.summary.upper()
+def get_subject(summary: str) -> str:
+    """Get subject from summary"""
+    summary = summary.upper()
     res = re.compile("[R][0-9][-|_|.][0-9]{2}")
     sae = re.compile("[S](A[É|E])?[0-9][-|_|.][0-9]{2}")
     match = res.search(summary) or sae.search(summary)
@@ -90,17 +89,6 @@ def has_event(events: list) -> bool:
     return False
 
 
-def event_equals(e1: Event, e2: Event) -> bool:
-    """
-    Test if events are equivalent in nature.
-    Inequality means events shouldn't be concatenated.
-    """
-    if not (e1 and e2): return e1 is None and e2 is None
-    return e1.location == e2.location and \
-           get_profs(e1) == get_profs(e2) and \
-           get_subject(e1) == get_subject(e2)
-
-
 def is_eval(event: Event) -> bool:
     """Check if an event is evaluated / graded."""
     txt = event.summary + event.description
@@ -108,16 +96,81 @@ def is_eval(event: Event) -> bool:
     return any([kwd in txt for kwd in EVALKEYWORDS])
 
 
-def get_added_duration(events: list[Event], i: int) -> int:
+
+##########################################################################
+# USMBEVENT CLASS
+##########################################################################
+
+
+
+class UsmbEvent(Event):
+    def __init__(self, event: Event) -> None:
+        self.__dict__.update(event.__dict__)
+        self.get_profs()
+        self.get_subject()
+        self.get_priority()
+    
+
+    def get_profs(self) -> None:
+        """Generate list of professors from description."""
+        self.profs = get_profs(self.description)
+    
+
+    def get_subject(self) -> None:
+        """Get subject name from summary."""
+        self.subject = get_subject(self.summary)
+
+
+    def similar(self, other: "UsmbEvent") -> bool:
+        """Check if two events should be fused."""
+        return self.location == other.location and \
+           self.profs == other.profs and \
+           self.subject == other.subject
+    
+
+    def get_priority(self) -> None:
+        """Get the priority of an event.
+        Higher number is better priority."""
+        self.prio = 1
+        if is_eval(self): prio = 5
+        self.prio /= self.get_duration().seconds/3600
+        self.prio *= len(self.location) * 0.25 + 0.1
+        self.prio *= len(self.profs) * 0.25 + 0.1
+    
+
+    def to_json(self) -> dict:
+        """Convert the UsmbEvent object into a JSON serializable dictionary."""
+        return  {"summary": self.summary,
+                 "description": self.description,
+                 "start": str(self.start),
+                 "end": str(self.end),
+                 "location": self.location}
+
+
+def convert_to_usmb(event: any) -> UsmbEvent:
+    """Converts an Event object to a UsmbEvent object."""
+    if isinstance(event, UsmbEvent): return event
+    if isinstance(event, Event): return UsmbEvent(event)
+    if isinstance(event, list): return [convert_to_usmb(e) for e in event]
+    raise TypeError("Input must be type Event or list.")
+
+
+def similar(a: UsmbEvent, b: UsmbEvent) -> bool:
+    if isinstance(a, UsmbEvent)  and isinstance(b, UsmbEvent):
+        return a.similar(b)
+    return a is None and b is None
+
+
+def get_added_duration(events: list[UsmbEvent], i: int) -> int:
     """Obtain concatenated event duration."""
     if i >= len(events): return 0
     if not events[i]: return 0
     if i > len(events) - 1: return 1
-    if not event_equals(events[i], events[i+1]): return 1
+    if not similar(events[i], events[i+1]): return 1
     return 1 + get_added_duration(events, i+1)
 
 
-def get_heights(events: list[Event]) -> list[int]:
+def get_heights(events: list[UsmbEvent]) -> list[int]:
     """
     Obtain table cell height on a timetable based on event duration.
     0 is void, a value is an occupied time.
@@ -127,33 +180,11 @@ def get_heights(events: list[Event]) -> list[int]:
     for i in range(len(events)):
         if events[i]:
             d = get_added_duration(events, i)
-            if i != 0 and heights[i-1] not in [0, -1]:
+            if i != 0 and heights[i-1] > 1:
                 heights.append(-d)
-            else:
-                heights.append(d)
-        else:
-            heights.append(0)
+            else: heights.append(d)
+        else: heights.append(0)
     return heights
-
-
-
-##########################################################################
-# SHORT FORMATTING
-##########################################################################
-
-
-
-def get_event_priority(event: Event) -> float:
-    """
-    Get the priority of an event.
-    Higher number is better priority.
-    """
-    prio = 1
-    if is_eval(event): prio = 5
-    prio /= event.get_duration().seconds/3600
-    prio *= len(event.location) * 0.25 + 0.1
-    prio *= len(get_profs(event)) * 0.25 + 0.1
-    return prio
 
 
 def prioritize(events: list) -> any:
@@ -163,12 +194,19 @@ def prioritize(events: list) -> any:
     (will reduce indentation, not return the priorit-est).
     """
     if not events: return None
-    if all([isinstance(e, Event) for e in events]):
-        events = sorted(events, key = get_event_priority)
+    if all([isinstance(e, UsmbEvent) for e in events]):
+        events = sorted(events, key = lambda x: x.prio)
         return events[-1]
     elif all([isinstance(e, list) for e in events]):
         return [prioritize(e) for e in events]
-    else: raise TypeError("Expected only Events in nested list.")
+    else: raise TypeError("Expected only UsmbEvents in nested list.")
+
+
+
+##########################################################################
+# SHORT FORMATTING
+##########################################################################
+
 
 
 def get_char_len(msg: list[str]) -> int:
@@ -187,12 +225,12 @@ def strip_string(txt: str) -> str:
     return txt[:-1]
 
 
-def format_by_line(event: Event, lines: int) -> list[str]:
+def format_by_line(event: UsmbEvent, lines: int) -> list[str]:
     """Format Event to be displayed on a number of lines."""
     assert lines > 0
     summ = event.summary
     locs = event.location
-    profs = get_profs(event)
+    profs = event.profs
     space = " "
     
     while True:
@@ -245,7 +283,7 @@ def format_times(times: list[dt], offset: int = 0) -> list[str]:
     return [str((t + td(hours = offset)).hour).zfill(2) for t in times]
 
 
-def format_subjects(events: list[Event], heights: list[int]) -> list[str]:
+def format_subjects(events: list[UsmbEvent], heights: list[int]) -> list[str]:
     """Get a list of the event subjects, formatted as needed."""
     subjects = [EMPTYSUBJECT] * len(heights)
     for i in range(len(events)):
@@ -255,7 +293,7 @@ def format_subjects(events: list[Event], heights: list[int]) -> list[str]:
                 subjects[i] = FILLSUBJECT
             else: subjects[i] = SUBJECTSEPS[0]
         elif heights[i] > 0:
-            subjects[i] = get_subject(events[i])
+            subjects[i] = events[i].subject
         else:
             prev = heights[i-1] > 0 if not first else False
             next = heights[i+1] > 0 if not last else False
@@ -269,8 +307,8 @@ def format_subjects(events: list[Event], heights: list[int]) -> list[str]:
     return subjects
 
 
-def format_details(events: list[Event], heights: list[int]) -> list[str]:
-    """Format details using format_by_line and  a heights list."""
+def format_details(events: list[UsmbEvent], heights: list[int]) -> list[str]:
+    """Format details using format_by_line and a heights list."""
     details = []
     for i in range(len(events)):
         if events[i] and heights[i] > 0:
@@ -289,7 +327,7 @@ def format_details(events: list[Event], heights: list[int]) -> list[str]:
 
 
 
-def format_day(events: list[Event], sep: str = None) -> list[list]:
+def format_day(events: list[UsmbEvent], sep: str = None) -> list[list]:
     """Generate timetable for the day (with generic parameters)."""
     heights = get_heights(events)
     subjects = format_subjects(events, heights)
@@ -297,7 +335,7 @@ def format_day(events: list[Event], sep: str = None) -> list[list]:
     return [subjects, sep, details] if sep else [subjects + details]
 
 
-def format_week(events: list[list[Event]]) -> list[list[str]]:
+def format_week(events: list[list[UsmbEvent]]) -> list[list[str]]:
     """Generate timetable for the week (with generic parameters)."""
     heights = [get_heights(day) for day in events]
     subjects = [format_subjects(day, h) for day, h in zip(events, heights)]
@@ -393,13 +431,14 @@ def timetable_tostring(table: list[list], ySep: str = "\n", xSep: str = "") -> s
 
 
 
-def main_day(events: list[Event], time: any = dt_now(),
+def main_day(events: list[UsmbEvent], time: any = dt_now(),
          offset: int = 0, max_trunc: int = 5) -> list[list[str]]:
     if not events: events = main()
     t = return_dt(time)
     hours = hours_of_day(t)
     table = cross_time_day(hours, events)
-    prio = prioritize(table)
+    usmb = convert_to_usmb(table)
+    prio = prioritize(usmb)
     day = format_day(prio, TABLESEPS[2])
     if not has_event(prio): raise NoEventException
     times = format_times(hours, offset)
@@ -410,14 +449,15 @@ def main_day(events: list[Event], time: any = dt_now(),
     return formatted
 
 
-def main_week(events: list[Event], time: any = dt_now(),
+def main_week(events: list[UsmbEvent], time: any = dt_now(),
          offset: int = 0, lang: str = "", max_trunc: int = 5) -> list[list[str]]:
     if not events: events = main()
     t = return_dt(time)
     days = days_of_week(t)
     hours = create_table(days)
     table = cross_time_week(hours, events)
-    prio = prioritize(table)
+    usmb = convert_to_usmb(table)
+    prio = prioritize(usmb)
     week = format_week(prio)
     empty = empty_indexes(week)
     empty = limit_empty(empty, len(week))
@@ -437,7 +477,7 @@ def main_week(events: list[Event], time: any = dt_now(),
 
 if __name__ == '__main__':
     EVENTS = main()
-    time = dt_now() + td(9)
+    time = dt_now()
 
     week = main_week(EVENTS, time, 1, "fr")
     print("\n" + timetable_tostring(week) + "\n")
