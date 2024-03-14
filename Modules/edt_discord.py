@@ -18,6 +18,7 @@ from edt_usmb import *
 import json
 from reactech import *
 from dsc_converter import dsc_obj
+from basic import mixmatch
 import asyncio
 
 
@@ -32,15 +33,23 @@ PROFILES_FILE = "profiles_file.json"
 PROFILES = []
 SCHEDULES_FILE = "schedules_file.json"
 SCHEDULES = []
+
 NO_EVENT = "No event to display for this time frame."
 SURROUND = "```"
+
 DEFAULT_OFFSET = 0
 DEFAULT_LANG = "en"
 VALID_LANG = ["en", "fr"]
+
 NAME_LEN = (3, 10)
 NAME_RE = re.compile(f"^(?=.*[a-zA-Z])[a-zA-Z0-9]{{{NAME_LEN[0]},{NAME_LEN[1]}}}$")
 DELETE_KEYWORDS = ["!", "X", "x", "rm", "/"]
 DEFAULT_COLOR = "0xffffff"
+
+CMD_EDT = ["edt", "schedule", "sked"]
+CMD_EDIT = ["edit", "mod", "modify"]
+CMD_REM = ["remove", "delete", "del", "rem", "rm"]
+CMD_NEW = ["new", "add", "create", "make"]
 
 class NoNameException(Exception): pass
 class IsNameException(Exception): pass
@@ -150,8 +159,9 @@ def find_any(msg: str, time: any) -> (dt, bool):
 class Schedule:
     def __init__(self, names, url: str = "", file_path: str = None,
                  events: list[UsmbEvent] = None) -> None:
-        if isinstance(names, str): self.names = [names]
-        else: self.names = names
+        if isinstance(names, str): self.names = [names.lower()]
+        else: self.names = [n.lower() for n in names]
+        self.names.sort()
         self.events = []
         if events and all([isinstance(e, dict) for e in events]):
             events = [Event(**e) for e in events]
@@ -164,23 +174,7 @@ class Schedule:
 
     def has_name(self, name: str) -> bool:
         """Checks if name is one of schedule's name."""
-        return any(n == name for n in self.name)
-
-
-    def add_names(self, names) -> None:
-        """Add one or more names to the schedule."""
-        if isinstance(names, str): names = [names]
-        for n in names:
-            if self.has_name(n): continue
-            if not is_schedule(n):
-                self.names += [n]
-            else: raise IsNameException()
-    
-
-    def remove_names(self, names) -> None:
-        """Remove one or several names from the schedule."""
-        if isinstance(names, str): names = [names]
-        self.names = [n for n in self.names if not n in names]
+        return any(n == name.lower() for n in self.name)
 
 
     def change_names(self, names) -> None:
@@ -188,11 +182,13 @@ class Schedule:
         Change the names of the schedule.
         Add names that are not present and remove those which are.
         """
-        if isinstance(names, str): names = [names]
+        if isinstance(names, str): names = [names.lower]
+        else: names = [n.lower for n in names]
         if sorted(names) == self.names:
             raise NoNameException()
-        [self.add_names(n) if n not in self.names else \
-         self.remove_names(n) for n in names]
+        for n in names:
+            if self.has_name(n): names.remove(n)
+            else: names.add(n)
         self.names.sort()
 
 
@@ -226,7 +222,7 @@ def is_schedule(name: str) -> bool:
 
 
 def get_schedule(names) -> Schedule:
-    """Find and returns a schedule that contains any name."""
+    """Find and returns first schedule that contains any name."""
     if isinstance(names, str): names = [names]
     for n in names:
         for s in SCHEDULES:
@@ -361,8 +357,8 @@ class EdtCog(COG):
         self.BOT = bot
     
 
-    @CMDS.command(name = "edtprofile", aliases = ["edtprofile", "defaultprofile", "defprofile",
-                            "defaultschedule", "defschedule", "defaultsched", "defsched"])
+    @CMDS.command(name = "edtprofile", aliases =
+                  mixmatch(CMD_EDT + ["default", "def"], ["profile", "prof"]))
     async def edtprofile(self, ctx: CTX, *args) -> None:
         """Set user's offset and/or default schedule to use."""
         id = str(ctx.author.id)
@@ -379,9 +375,8 @@ class EdtCog(COG):
         
         # Detect arguments
         detect = {"offset": False, "lang": False, "schedule": False}
-        profile = get_profile(id) if is_profile(id) else EdtProfile(id)
-        was_profile = is_profile(id)
-        PROFILES.remove(profile)
+        modify = is_profile(id)
+        profile = get_profile(id) if modify else EdtProfile(id)
         is_an_offset = re.compile("^[+|-]?[0-9]{1-2}$")
         unrecognized, msg = [], []
         for a in args:
@@ -397,30 +392,30 @@ class EdtCog(COG):
                 detect["schedule"] = True
             else: unrecognized.append(a)
 
-        PROFILES.append(profile)
         new_schedule = f"'{profile.schedule}'" if profile.schedule else "None"
         if unrecognized: # If one or more arguments are not resolved
             msg += [rt_warn(self.BOT, ctx, f"Some arguments could not be resolved :`{'`, `'.join(unrecognized)}`.")]
-        if was_profile and not any(detect.values()): # Nothing to change
+        if modify and not any(detect.values()): # Nothing to change
             msg += [rt_ok(self.BOT, ctx, "Profile did not change.")]
         else: # Main reactech message
-            start = "Updated" if was_profile else "Created"
+            start = "Updated" if modify else "Created"
             msg += [rt_ok(self.BOT, ctx, f"{start} Profile with offset `{format_offset(profile.offset)}`
                     , schedule `{new_schedule}` and language `{profile.lang}`.")]
         asyncio.gather(*msg)
 
 
 
-    @CMDS.command(name = "modifyedt", aliases = ["modedt", "edtmodify", "edtmod"])
+    @CMDS.command(name = "modifyedt", aliases =
+                  mixmatch(CMD_EDIT + CMD_NEW + CMD_REM, CMD_EDT))
     async def modifyedt(self, ctx: CTX, *args) -> None:
         """Create, modify or delete a schedule."""
         if len(args) < 2: await rt_err(self.BOT, ctx, "⁉️", f"Not enough arguments."); return
         if await self.try_delete_schedule(ctx, args): return
         names = [a for a in args if is_schedule(a)]
+        # need to handle creation
         schedule = is_same_schedule(names)
         if not schedule: rt_warn(self.BOT, ctx, "Must specify exactly one schedule."); return
         self.try_mod_schedule(ctx, schedule, *args)
-        
 
 
     async def try_mod_schedule(self, ctx: CTX, schedule: Schedule, *args) -> None:
@@ -432,12 +427,10 @@ class EdtCog(COG):
         msg = []
         if others: msg += [rt_warn(self.BOT, ctx, f"Argument(s) `{'`, `'.join(others)}` could not be resolved.")]
         if urls: msg += [rt_ok(self.BOT, ctx, f"URL successfully changed.")]
-        SCHEDULES.remove(schedule)
         try: schedule.populate_events(*files)
-        except KeyError: rt_warn(self.BOT, ctx, "File was not formatted correctly."); return
+        except Exception as e: rt_warn(self.BOT, ctx, f"Events did not import correctly :\n{e}"); return
         if urls or files: msg += [rt_ok(self.BOT, ctx, f"Events updated.")]
         if urls: schedule.url = urls[0]
-        SCHEDULES.append(schedule)
         asyncio.gather(*msg)
 
 
