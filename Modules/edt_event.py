@@ -14,7 +14,6 @@ Does not include displaying or saving.
 import os
 import requests
 import icalendar
-import calendar
 from datetime import datetime as dt
 from datetime import timedelta as td
 from datetime import timezone as tz
@@ -25,9 +24,6 @@ from datetime import timezone as tz
 # GLOBAL AND FUNCTIONS
 ##########################################################################
 
-
-
-TEMPFILENAME = "edt_temp.ics"
 
 
 def dt_now() -> dt:
@@ -77,10 +73,10 @@ class Event:
 
     def to_string(self, sep: str = "\n") -> str:
         """Return a string representation of the event."""
-        return f"{self.summary}{sep}" \
-            f"Start: {self.start}{sep}" \
-            f"End: {self.end}{sep}" \
-            f"Location: {self.location}"
+        return sep.join([self.summary,
+            f"Start: {self.start}",
+            f"End: {self.end}{sep}",
+            f"Location: {self.location}"])
 
 
     def print_self(self, sep: str = "\n") -> None:
@@ -128,6 +124,8 @@ def convert_event(event: icalendar.Event) -> Event:
     """Create an Event object using an ICAL event."""
     attribs = ["summary", "dtstart", "dtend", "location", "description"]
     attribs = [event.get(i, None) for i in attribs]
+    if not attribs["dtstart"] or not attribs["dtend"]:
+        raise ValueError("Start and End time are non-optionnal")
     return Event(*attribs)
 
 
@@ -172,20 +170,25 @@ def get_from_ics(path: str) -> list[Event]:
     """Retreive events in the specified ics file (path must be absolute)."""
     with open(path, 'r', encoding = 'UTF-8') as file:
         cal = icalendar.Calendar.from_ical(file.read())
-    events = [convert_event(e) for e in cal.walk() if isinstance(e, icalendar.Event)]
+    events = []
+    for e in cal.walk():
+        if isinstance(e, icalendar.Event):
+            try: events.append(convert_event(e))
+            except ValueError: pass
     return sort_by_time(events)
 
 
 def get_from_url(url: str) -> list[Event]:
-    """Download ics file from url and extract data from temp file."""
-    response = requests.get(url)
-    if os.path.exists(TEMPFILENAME):
-        os.remove(TEMPFILENAME)
-    with open(TEMPFILENAME, 'xb') as file:
-        file.write(response.content)
-    events = get_from_ics(TEMPFILENAME)
-    if os.path.exists(TEMPFILENAME):
-        os.remove(TEMPFILENAME)
+    """Download ics file from url and extract data."""
+    try: response = requests.get(url)
+    except requests.exceptions.InvalidURL: raise requests.exceptions.InvalidURL()
+    except requests.exceptions.RequestException: raise requests.exceptions.RequestException()
+    cal = icalendar.Calendar.from_ical(response.content)
+    events = []
+    for e in cal.walk():
+        if isinstance(e, icalendar.Event):
+            try: events.append(convert_event(e))
+            except ValueError: pass
     return sort_by_time(events)
 
 

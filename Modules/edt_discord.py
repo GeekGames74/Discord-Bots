@@ -15,6 +15,7 @@ from discord.ext.commands import Context as CTX
 from discord.ext.commands import cog as COG
 from discord import Embed as EMBED
 from edt_usmb import *
+import calendar
 import json
 from reactech import *
 from dsc_converter import dsc_obj
@@ -392,15 +393,15 @@ class EdtCog(COG):
                 detect["schedule"] = True
             else: unrecognized.append(a)
 
-        new_schedule = f"'{profile.schedule}'" if profile.schedule else "None"
+        new_schedule = f"'`{profile.schedule}`'" if profile.schedule else "None"
         if unrecognized: # If one or more arguments are not resolved
             msg += [rt_warn(self.BOT, ctx, f"Some arguments could not be resolved :`{'`, `'.join(unrecognized)}`.")]
         if modify and not any(detect.values()): # Nothing to change
             msg += [rt_ok(self.BOT, ctx, "Profile did not change.")]
         else: # Main reactech message
             start = "Updated" if modify else "Created"
-            msg += [rt_ok(self.BOT, ctx, f"{start} Profile with offset `{format_offset(profile.offset)}`
-                    , schedule `{new_schedule}` and language `{profile.lang}`.")]
+            msg += [rt_ok(self.BOT, ctx, f"{start} profile with offset `{format_offset(profile.offset)}`
+                    , schedule {new_schedule} and language `{profile.lang}`.")]
         asyncio.gather(*msg)
 
 
@@ -416,6 +417,7 @@ class EdtCog(COG):
         schedule = is_same_schedule(names)
         if not schedule: rt_warn(self.BOT, ctx, "Must specify exactly one schedule."); return
         self.try_mod_schedule(ctx, schedule, *args)
+
 
 
     async def try_mod_schedule(self, ctx: CTX, schedule: Schedule, *args) -> None:

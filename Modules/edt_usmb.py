@@ -113,12 +113,21 @@ class UsmbEvent(Event):
 
     def get_profs(self) -> None:
         """Generate list of professors from description."""
-        self.profs = get_profs(self.description)
+        self.profs = get_profs(self.description) or []
     
 
     def get_subject(self) -> None:
         """Get subject name from summary."""
-        self.subject = get_subject(self.summary)
+        self.subject = get_subject(self.summary) or ""
+
+
+    def get_priority(self) -> None:
+        """Get the priority of an event.
+        Higher number is better priority."""
+        self.prio = 5 if is_eval(self) else 1
+        self.prio /= self.get_duration().seconds/3600
+        self.prio *= len(self.location) * 0.25 + 0.1
+        self.prio *= len(self.profs) * 0.25 + 0.1
 
 
     def similar(self, other: "UsmbEvent") -> bool:
@@ -126,16 +135,6 @@ class UsmbEvent(Event):
         return self.location == other.location and \
            self.profs == other.profs and \
            self.subject == other.subject
-    
-
-    def get_priority(self) -> None:
-        """Get the priority of an event.
-        Higher number is better priority."""
-        self.prio = 1
-        if is_eval(self): prio = 5
-        self.prio /= self.get_duration().seconds/3600
-        self.prio *= len(self.location) * 0.25 + 0.1
-        self.prio *= len(self.profs) * 0.25 + 0.1
     
 
     def to_json(self) -> dict:
