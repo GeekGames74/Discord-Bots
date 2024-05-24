@@ -34,8 +34,8 @@ from traceback import print_exception
 from math import factorial, pi
 from dice import roll as ROLL
 
-from Modules.basic import *
 sys.path.append(os.path.join(local_path(__file__), 'Modules'))
+from Modules.basic import *
 from Modules.reactech import *
 
 
