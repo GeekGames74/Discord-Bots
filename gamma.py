@@ -8,9 +8,6 @@ __email__ = "geekgames74.fr@gmail.com"
 __version__ = "2.0.0"
 
 
-print("Started")
-
-
 
 ##########################################################################
 # REQUIREMENTS AND IMPORTS
@@ -31,10 +28,10 @@ from nest_asyncio import apply as asyncio_apply
 
 from traceback import print_exception
 
-from math import factorial, pi
+from math import factorial, pi, sqrt
 from dice import roll as ROLL
 
-sys.path.append(os.path.join(local_path(__file__), 'Modules'))
+sys.path.append(os.path.join(localpath(__file__), 'Modules'))
 from Modules.basic import *
 from Modules.reactech import *
 
@@ -49,11 +46,10 @@ from Modules.reactech import *
 def del_env(var) -> None:
     """Delete (var) from execution environment, or at least obfuscate it."""
     if isinstance(var, str):
-        globals()[var] = "HIDDEN"
-        exec(f"{var} = 'HIDDEN'")
-        exec(f"del {var}")
-    # (var) can also be a list of variables to del_env()
-    elif isinstance(var, list):
+        globals()[var] = "HIDDEN" # Globally Hide it
+        del globals()[var] # And remove it entirely
+    # Accepts iterable input
+    elif isiterable(var):
         for i in var:
             del_env(i)
 
@@ -61,34 +57,33 @@ def del_env(var) -> None:
 def del_i() -> None:
     """Remove code from the environment, as a precaution."""
     del_env("In")
-    i = 0
-    while i < len(globals()):
-        if list(globals().keys())[i].startswith("_i"):
-            del_env(list(globals().keys())[i])
-        else: i += 1
+    for k in globals().copy():
+        if k.startswith("_i"):
+            del_env(k)
 
 
 def check_file(name: str) -> str:
-    """Tries to resolve given path."""
-    path = local_path(__file__) + name
+    """Tries to find a file in the current directory."""
+    path = localpath(__file__) + name
     name.replace("/", os.sep)
-    if os.path.isfile(f"{path}"):
-        return f"{path}"
+    if os.path.isfile(path):
+        return path
     raise FileNotFoundError(f"{path} was not found in current directory")
 
 
-def with_data(where: str, data: any):
+def with_data(source: str, data: any):
     """
-    TXT: Obtain requested data with {VarName: identifier}
+    Generic decorator to securely fetch data from a given source
+    Supported sources: TXT,
     """
     def decorator(func: callable) -> callable:
         def wrapper(*args, **kwargs) -> any:
-            if where.endswith(".txt"):
-                local_data = data_TXT(where, data)
-            else: raise NotImplementedError(f"Cannot get data from {where}")
+            if source.endswith(".txt"):
+                local_data = data_TXT(source, data)
+            else: raise NotImplementedError(f"Cannot get data from {source}")
             kwargs.update(local_data)
             result = func(*args, **kwargs)
-            del_env(["data", "local_dta"])
+            del_env(["data", "local_data"])
             return result
         return wrapper
     return decorator
@@ -96,6 +91,7 @@ def with_data(where: str, data: any):
 
 # Data from .txt
 def data_TXT(file: str, data: dict) -> dict:
+    """data = {VarNameToInjectInEnv: IndexOfLine}"""
     file = check_file(file)
     local_data = {}
     with open(file) as F:
@@ -115,17 +111,17 @@ def data_TXT(file: str, data: dict) -> dict:
 
 
 # Intents required by the bot. Limit to minimum.
-intents = DSC.Intents.default()
-intents.message_content = True
-intents.members = True
+_intents = DSC.Intents.default()
+_intents.message_content = True
+_intents.members = True
 
 
 PREFIX = "/"
 BOT = CMDS.Bot(command_prefix = PREFIX,
-               intents = intents,
-               case_insensitive = True,
-               strip_after_prefix = True,
-               activity = DSC.Activity(),
+               intents = _intents,
+               case_insensitive = True, # Commands are case incensitive
+               strip_after_prefix = True, # Allow whitespace after prefix
+               activity = DSC.Activity(), # Default (set at runtime)
               )
 
 
@@ -152,55 +148,53 @@ async def GetVIPs() -> None:
 ##########################################################################
 
 
-
-def greater_than(left, right) -> int:
-    return 1 if left > right else 0
-def lesser_than(left, right) -> int:
-    return 1 if left < right else 0
-def greater_eq_than(left, right) -> int:
-    return 1 if left >= right else 0
-def lesser_eq_than(left, right) -> int:
-    return 1 if left <= right else 0
-
-
-def main_math(msg, auto: bool = False) -> (any,str):
+def main_math(msg: str, auto: bool = False) -> (any,str):
     """
     Automatically detect and evaluate math and rolling expression from msg.
     <auto> makes it require more checks, used to filter msg_math().
     """
+    msg = msg.lower()
+    # If the user literally asks for pi
     if msg == "pi" : return (pi, "math")
+    # Turn pi into p (after 'pi' check, we do not accept 'p')
     msg = msg.replace("pi", "p")
+    # Does the request use dice notation ?
     isdice = True if "d" in msg else False
+    # Default allowed characters list
     allow = "0123456789()+-*/!.,^<=>p"
-    if isdice: allow += "%dtsefxahmovl@"
+    # Extended allowed characters list
+    if isdice: allow += "%dtsefxahmovl"
+    # Filter the message
     txt = "".join([i for i in msg if i in allow])
     
-    _ = ("","error")
+    _ = ("","error") # Default error return
     if auto:
-        if len(msg) > 50: return _
+        if len(msg) > 50: return _ # Max 50 characters
+        # At least 3 characters (1+1), or 2 if dice (d4)
         if len(txt) < 2 or (len(txt) < 3 and not isdice): return _
-        if len(txt) < 0.5*len(msg): return _
+        # Less than 25% of the message is allowed (not counting spaces)
+        if len(txt) < 0.75*len(msg.replace(" ", "")): return _
+        # At least one number (or pi)
         if not least_one(txt, "0123456789p"): return _
+        # Either dice or math (don't tell the user 123 = 123)
         if not isdice and not least_one(txt, "+-*/!^<>"): return _
+        # Just in case, no IDs and not newlines
         if least_one(msg, ["<#","<@","<@&", "\n"]): return _
    
-            
-    if isdice:
-        if "@" in txt:
-            if txt.count("@") > 2:
-                return ("Attack", "error")
-            attack = txt.split("@")
-            if txt.count("@") == 1: attack.append("1")
-            try: return (greater_eq_than(main_math(attack[0])[0],
-                                         main_math(attack[1])[0])*
-                                         main_math(attack[2])[0],
-                                         "attack")
-            except Exception as e: return (e,"error")
-        
-        elif least_one(txt, ["**", ">=", "<="]) or least_one(txt, "!><p"):
+    # Cannot use both dice and complex math (technical limitation)
+    if isdice and least_one(txt, ["**", ">=", "<="]) or least_one(txt, "!><p"):
             return ("Mix", "error")
     
-    else:
+    else: # Define helper functions, then replace text
+        def greater_than(left, right) -> int:
+            return 1 if left > right else 0
+        def lesser_than(left, right) -> int:
+            return 1 if left < right else 0
+        def greater_eq_than(left, right) -> int:
+            return 1 if left >= right else 0
+        def lesser_eq_than(left, right) -> int:
+            return 1 if left <= right else 0
+
         txt = txt.replace("^", "**")
         txt = txt.replace("!", "factorial")
         txt = txt.replace(">=", "greater_eq_than")
@@ -209,52 +203,48 @@ def main_math(msg, auto: bool = False) -> (any,str):
         txt = txt.replace("<", "lesser_than")
         txt = txt.replace("p", "pi")
 
-    try:
-        if not isdice:
+    try: # Calculation
+        if not isdice: # Complex (or default) math
             result = eval(txt)
-        else:
+        else: # Dice usage
             result = ROLL(txt)
     except Exception as e:
         return (e,"error")
     
     type_ = "dice" if isdice else "math"
+    # (3d20) returns [1d20, 1d20, 1d20]. Most commonly, users want the sum
     if isinstance(result, list): result = sum(result)
+    # If literally nothing has changed anyway (and we are in auto), forget it
     if auto and str(result) == txt: return _
-    return (result,type_)
+    return (result, type_)
 
 
-@BOT.command(name = "calculate", aliases = ["calc", "c", "math",
-                                       "eval", "evaluate",
-                                       "roll", "dice", "r", "d"])
-async def calculate(ctx: CTX, *, txt: str) -> any:
+@BOT.command(name = "calculator", aliases = ["calculate", "calc", "evaluate", "eval", "math",
+                                            "dice", "roll", "d", "r", "diceroll", "rolldice"])
+async def calculate(ctx: CTX, *, txt: str) -> None:
     """
     Allows mathematical evaluation of a simple expression (it's a calculator !)
     Can also dice.py notations (see https://pypi.org/project/dice/).
     Can also use factorial '!(5)', pi 'p', and comparisons '<=(5,10)'.
-    Using '@' permits dice notation within a 'greater than or equal to', such as:
-    '1d20@15@2d6' means '>=(1d20,15)*2d6'
     """
     result = main_math(txt)
     if result[1] == "error":
-        awaiter = [rt_err(BOT, ctx, "⁉️", result[0])]
-        if "d" in txt:
-            awaiter += [rt_err(BOT, ctx, "🆘", "Dice notation: https://pypi.org/project/dice/")]
         if result[0] == "Mix":
-            await rt_err(BOT, ctx, "🚫", "Cannot use complex math (factorial, power, comparison) and dice at the same time!")
-        elif result[0] == "Attack":
-            await rt_err(BOT, ctx, "🚫", "Cannot use more than 2 Attack markers")
-        else:
-            asyncio.gather(*awaiter)
-    else:
-        await ctx.send(result[0])
+            await rt_err(BOT, ctx, "🚫",
+            "Cannot use complex math (factorial, power, comparison) and dice at the same time!"); return
+        # If the error is not a mix, then simply log it to the user
+        awaiter = [rt_err(BOT, ctx, "⁉️", result[0])]
+        if "d" in txt: # Include dice documentation if relevant
+            awaiter += [rt_err(BOT, ctx, "🆘", "Dice notation: https://pypi.org/project/dice/")]
+        asyncio.gather(*awaiter) # Send error(s) as reactions
+    else: await ctx.send(result[0]) # Send result
 
 
-# Only notifies of available answer if it produces no error
 async def msg_math(msg: DSC.message) -> None:
     result = main_math(msg.content, True)
-    if result[1] != "error":
-        emote = {"math":"🧮", "dice":"🎲", "attack":"⚔️"}[result[1]]
-        await reactech(BOT, msg, emote, True, 0, 3600, "True", f"msg.channel.send('{result[0]}')")
+    if result[1] != "error": # Only send if it's not an error
+        emote = {"math":"🧮", "dice":"🎲"}[result[1]]
+        await reactech(BOT, msg, emote, True, 0, 3600, None, f"msg.channel.send('{result[0]}')")
 
 
 
@@ -265,10 +255,9 @@ async def msg_math(msg: DSC.message) -> None:
 
 
 @BOT.command(name = "ping", aliases = ["test", "!", "latency"])
-async def ping(ctx: CTX = None) -> int:
-    if ctx is not None:
-        await ctx.send("pong! " + str(int(BOT.latency*1000)) + "ms")
-    return BOT.latency
+async def ping(ctx: CTX) -> None:
+    """Returns the current latency between discord and the bot."""
+    await ctx.send("pong! " + str(int(BOT.latency*1000)) + "ms")
 
 
 # Evaluates expression or runs code from Discord
@@ -276,6 +265,11 @@ async def ping(ctx: CTX = None) -> int:
 @BOT.command(name = "echo", aliases = ['console', 'send', 'exec', 'command',' cmd', 'execute'])
 @CMDS.is_owner()
 async def echo(ctx: CTX, *, txt: str) -> None:
+    """
+    Executes a command or evaluates an expression.
+    Usage is reserved for bot developpers / admins, for testing purposes.
+    Report any and every case of abuse to the bot support.
+    """
     print(txt)
     try: await eval(txt)
     except SyntaxError:
@@ -288,35 +282,48 @@ async def echo(ctx: CTX, *, txt: str) -> None:
 @CMDS.is_owner()
 async def activity(ctx: CTX, action: str = "", *, txt = None) -> DSC.Activity:
     """
-    Changes current bot activity and status message
-    Activity is designated with keywords in (action)
+    Changes current bot activity and status message.
+    Activity is designated with generic keywords.
     """
     action = action.lower()
-    if 'twitch.tv/' in action: url = action.removeprefix("https://").removeprefix("www.")
-    else : url = "twitch.tv/"
-    url = "https://" + url
+    url = "twitch.tv/" # Default url
+    # Does not work with www.
+    if 'twitch.tv/' in action:
+        url = action.replace("www.", "")
+    # Does not work without https://
+    if not url.startswith("https://"): 
+        url = "https://" + url
+
     activity = None
-    if least_one(action, ['gam', 'play']) : activity = DSC.Game(name = txt)
-    if least_one(action, ['stream', 'twitch']) : activity = DSC.Streaming(name = txt, url = url)
-    if least_one(action, ['listen']) : activity = DSC.Activity(type = DSC.ActivityType.listening, name = txt)
-    if least_one(action, ['watch', 'video']) : activity = DSC.Activity(type = DSC.ActivityType.watching, name = txt)
-    if least_one(action, ['def', 'serv', 'bas', 'main']) : activity = "Default"
-    if activity is None:
+    if least_one(action, ['gam', 'play']):
+        activity = DSC.Game(name = txt)
+    if least_one(action, ['stream', 'twitch']):
+        activity = DSC.Streaming(name = txt, url = url)
+    if least_one(action, ['listen']):
+        activity = DSC.Activity(type = DSC.ActivityType.listening, name = txt)
+    if least_one(action, ['watch', 'video']):
+        activity = DSC.Activity(type = DSC.ActivityType.watching, name = txt)
+    if least_one(action, ['def', 'serv', 'bas', 'main']):
+        activity = "Default"
+    
+    if activity is None: # Void
         activity = "Set activity to None"
         await BOT.change_presence(activity = None)
-    else:
+    else: # Anything but the void
         if txt is None or activity == "Default":
-            txt = str(len(BOT.guilds)) + ' servers'
+            txt = str(len(BOT.guilds)) + " servers" # Default message
             activity = DSC.Activity(type = DSC.ActivityType.watching, name = txt)
         await BOT.change_presence(activity = activity)
-    if ctx: await rt_ok(BOT, ctx, activity)
+    if ctx: await rt_ok(BOT, ctx, activity) # Feedback
     return activity
 
 
-@BOT.command(name = "kill", aliases = ["killtask", "end", "endtask", "destroy", "shutdown", "exit"])
-@CMDS.is_owner()
-async def kill(ctx: CTX = None) -> None:
-    if ctx: await ctx.message.add_reaction("✅")
+@BOT.command(name = "kill", aliases =
+                    mixmatch(["kill", "end", "destroy", "exit", "stop", "terminate"],
+                             ["", "bot", "task", "script", "instance", "yourself"]))
+@CMDS.is_owner()              # /kill-yourself is now a valid command (yipee ..?)
+async def kill(ctx: CTX) -> None:
+    await ctx.message.add_reaction("✅") # Feedback
     await END()
 
 
@@ -330,8 +337,8 @@ async def kill(ctx: CTX = None) -> None:
 @BOT.event
 async def on_message(msg: DSC.message) -> None:
     await BOT.process_commands(msg)
-    if msg.content.startswith(PREFIX): return
-    if msg.author == BOT.user: return
+    if msg.content.startswith(PREFIX): return # If it's not a bot command
+    if msg.author == BOT.user: return # And not sent by itself
     await msg_math(msg)
 
 
@@ -381,7 +388,7 @@ async def on_command_error(ctx: CTX, error):
         (CMDS.ChannelNotReadable,f)]
     for type_, i in errors:
         if isinstance(error, type_):
-            print(type_,i)
+            print(type_, i)
             await rt_err(BOT, ctx, i[0], i[1])
             return
     print_exception(type(error), error, error.__traceback__)
@@ -396,21 +403,31 @@ async def on_command_error(ctx: CTX, error):
 
 @BOT.event
 async def on_connect():
-    print("\nConnecting\n")
-    del_i()
+    print("\nCONNECTING\n")
 
 
 @BOT.event
 async def on_ready():
-    print("\nConnected\n\n")
-    # <LOAD HERE>
+    print("\nCONNECTED\nLOADING\n")
+    # <LOAD BELLOW>
     await GetVIPs()
     await activity(None, "Default")
+    # <LOAD ABOVE>
+    print("\LOADED\n")
+
+
+async def END():
+    print("\nSAVING\n")
+    # <SAVE BELLOW>
+    # <SAVE ABOVE>
+    print("\nSAVED\nDISCONNECTING\n")
+    await BOT.close()
 
 
 @BOT.event
 async def on_disconnect():
-    print("\nDisconnected")
+    # No code here (no garantee to be executed)
+    print("\nDISCONNECTED\n")
 
 
 @with_data("/Credentials/GAMMA_TOKEN.txt", {"TOKEN": 0})
@@ -419,10 +436,7 @@ def RUN(TOKEN):
     BOT.run(TOKEN, reconnect = True)
 
 
-async def END():
-    # <SAVE HERE>
-    print("\nDisconnecting\n")
-    await BOT.close()
-
-
-RUN()
+if __name__ == "__main__":
+    print("\nSTARTING\n")
+    del_i()
+    RUN()

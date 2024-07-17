@@ -22,18 +22,17 @@ from discord.ext.commands import Context as CTX
 
 
 
-# (Discord.Object, common_name, get_function) triplets
-TYPES = [(CTX, "ctx", None),
-         (DSC.Guild, "guild", "get_guild"),
-         (DSC.TextChannel, "channel", "get_channel"),
-         (DSC.VoiceChannel, "voice", "get_channel"),
-         (DSC.Message, "message", "get_partial_message"),
-         (DSC.User, "user", "get_user"),
-         (DSC.Role, "role", "get_role"),
-         (DSC.Member, "member", "get_member"),
-         (DSC.CategoryChannel, "category", "get_channel"),
-         (DSC.Emoji, "emoji", "get_emoji"),
-        ]
+#         typename:   (DSC object class,    get_function,          req_ctx  ),
+_TYPES = {"user":     (DSC.User,            "get_user"                      ),
+          "member":   (DSC.Member,          "get_member",          "guild"  ),
+          "emoji":    (DSC.Emoji,           "get_emoji"                     ),
+          "role":     (DSC.Role,            "get_role",            "guild"  ),
+          "guild":    (DSC.Guild,           "get_guild"                     ),
+          "category": (DSC.CategoryChannel, "get_channel"                   ),
+          "channel":  (DSC.TextChannel,     "get_channel"                   ),
+          "voice":    (DSC.VoiceChannel,    "get_channel"                   ),
+          "message":  (DSC.Message,         "get_partial_message", "channel"),
+        }
 
 
 
@@ -43,11 +42,19 @@ TYPES = [(CTX, "ctx", None),
 
 
 
-def dsc_toid(input) -> any:
-    """Transform (input) to a valid object id (does not output which)."""
-    if isinstance(input, int): return input
+def dsc_idtoint(input) -> any:
+    """
+    Transform (input) to a valid object id (does not output which).
+    Returns False if input is not an id.
+    """
+    # If input is already valid, no problem
+    if isinstance(input, int):
+        if input == 0: raise Exception("wtf") # wtf
+        return input
     if isinstance(input, str):
+        # Attempt to convert string of numbers to int
         if input.isdigit(): return int(input)
+        # Otherwise, check if ID is in <?000> format
         check = any([input.startswith(i) for i in ["<#", "<&@", "<@"]])
         if check and input.endswith(">"):
             input = [i for i in input if i.isdigit()]
@@ -55,31 +62,48 @@ def dsc_toid(input) -> any:
     return False
 
 
-def dsc_type(input) -> any:
+def dsc_gettype(input) -> str:
     """Declare if (input) is either a Discord.Object, an ID, or neither."""
-    for type_, name, call in TYPES:
+    # If object type is among the list in _TYPES
+    for type_, name, _ in _TYPES:
         if isinstance(input, type_): return name
-    if isinstance(input, int) or isinstance(input, str) and input.isdigit():
+    if dsc_idtoint(input):
         return "id"
-    else: return None
+    else: return ""
 
 
-def dsc_obj(BOT: CMDS.bot, input, obj: str, ctx = None) -> any:
+def dsc_convertobj(BOT: CMDS.bot, input, typename: str, ctx: CTX = None) -> any:
     """
     Transform given input to requested Discord.Object
-    If unable to, raises error.
     """
-    if dsc_type(input) == obj: return input
-    if dsc_toid(input):
-        input = dsc_toid(input)
-    if ctx is not None:
-        if obj == "message": ctx = dsc_obj(ctx, "channel")
-        else: ctx = dsc_obj(ctx, "guild")
-    if dsc_type(input) == "id":
-        if obj == "guild": return BOT.get_guild(int(input))
-        method = getattr(ctx, {name: call for (_, name, call) in TYPES}[obj], None)
-        return method(int(input))
-    elif dsc_type(input) == "ctx":
-        if obj in ["user", "member"]: return input.author
-        return getattr(input,obj)
-    raise TypeError(f"input {input} of type {type(input)} with request '{obj}' in dsc_obj()")
+    # If typename is not known
+    if typename not in _TYPES:
+        # Attempt to resolve from the current object, as a blessing (or curse) to the future user
+        attr = getattr(input, typename, None)
+        if attr:
+            print(f"Successuffly extracted '{typename}' from a '{type(input).name}'\n" +
+                   "If you are seeing this, it probably means a dsc_convertobj() call is unnecessary.")
+            return attr
+        raise ValueError(f"'{typename}' is not a Discord object class, or not implemented")
+    
+    # If input is already valid, return it unchanged
+    if dsc_gettype(input) == typename: return input
+
+    # If it's a valid ID, turn it into an actual int
+    if dsc_idtoint(input):
+        input = dsc_idtoint(input)
+
+        # If it can be fetched from the BOT
+        method = getattr(BOT, _TYPES[typename][1], None)
+        if method: return method(input)
+        
+        # Otherwise, this means it has to be fetched from CTX
+        if len(_TYPES[typename]) != 3: raise TypeError(f"Cannot fetch '{typename}' by ID")
+        if not ctx: raise ValueError(f"'{typename}' requires a CTX to be extracted")
+        ctx = dsc_convertobj(BOT, ctx, _TYPES[typename][2])
+        return getattr(ctx, _TYPES[typename][1])(input)
+
+    # Generic test if any scenario above is false
+    attr = getattr(input, typename, None)
+    if attr: return attr
+    raise TypeError(f"Cannot extract '{typename}' from input {input} of type '{type(input).name}'")

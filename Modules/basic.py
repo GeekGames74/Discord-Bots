@@ -1,14 +1,12 @@
 """
-Common commands for most modules and modules.
+Common functions for most cogs and modules.
 No discord.py here !
 """
-
 
 
 ##########################################################################
 # IMPORTS
 ##########################################################################
-
 
 
 import os
@@ -19,7 +17,8 @@ import os
 ##########################################################################
 
 
-SPACING = ["", "-", "_"]
+# Default spacing for the mixmatch function
+_SPACING = ["", "-", "_"]
 
 
 ##########################################################################
@@ -27,17 +26,31 @@ SPACING = ["", "-", "_"]
 ##########################################################################
 
 
-def mixmatch(part1: any, part2: any, spacing: any = SPACING, keeporder: bool = False) -> list:
-    """Create an exhaustive name matched from one element of each list."""
+def isiterable(var: any, allowstring: bool = False):
+    """Check if a variable is iterable or not (targeted at for-loops)"""
+    if allowstring and isinstance(var, str): return True
+    return isinstance(var, (list, tuple, set, dict, frozenset, range,))
+
+
+def mixmatch(part1: list, part2: list, spacing: list = _SPACING, keeporder: bool = False) -> list:
+    """
+    Create an exhaustive list of names matched from one element of each list.
+    Since returned value is a list, do not hesitate to use mixmatch() + mixmatch().
+    """
     names = []
-    if not isinstance(part1, (list, tuple)): part1 = [part1]
-    if not isinstance(spacing, (list, tuple)): spacing = [spacing]
-    if not isinstance(part2, (list, tuple)): part2 = [part2]
+    # Ensure all iterable arguments are converted if needed
+    if not isiterable(part1): part1 = [part1]
+    if not isiterable(spacing): spacing = [spacing]
+    if not isiterable(part2): part2 = [part2]
+    # Three-fold iteration
     for p1 in part1:
         for p2 in part2:
             for s in spacing:
-                names.append(f"{p1}{s}{p2}")
-                if not keeporder: names.append(f"{p2}{s}{p1}")
+                if not p1 or not p2: s= "" # If either is empty, disable spacing ----------+
+                names.append(f"{p1}{s}{p2}") #                                             |
+                # Append name in 'wrong order' if implementation hasn't disallowed it      |
+                if not keeporder: names.append(f"{p2}{s}{p1}") #                           |
+                if not p1 or not p2: break # And only apply the loop once   <--------------+
     return names
 
 
@@ -46,8 +59,8 @@ def least_one(text, checkfor) -> bool:
     return any(i in text for i in checkfor)
 
 
-def local_path(file: str = __file__) -> str:
-    """Return absolute path to the current file."""
+def localpath(file: str = __file__) -> str:
+    """Return absolute path to the current directory."""
     return os.path.dirname(os.path.realpath(file))
 
 
