@@ -9,14 +9,13 @@ __version__ = "2.0.0"
 
 
 
-##########################################################################
-# REQUIREMENTS AND IMPORTS
-##########################################################################
+##################################################
+# IMPORTS
+##################################################
 
 
 
 import os
-import sys
 
 import discord as DSC
 from discord import *
@@ -28,18 +27,17 @@ from nest_asyncio import apply as asyncio_apply
 
 from traceback import print_exception
 
-from math import factorial, pi, sqrt
+from math import factorial, pi
 from dice import roll as ROLL
 
-sys.path.append(os.path.join(localpath(__file__), 'Modules'))
 from Modules.basic import *
 from Modules.reactech import *
 
 
 
-##########################################################################
-# DATA AND CREDENTIALS
-##########################################################################
+##################################################
+# DATA
+##################################################
 
 
 
@@ -104,9 +102,9 @@ def data_TXT(file: str, data: dict) -> dict:
 
 
 
-##########################################################################
-# BOT SETUP
-##########################################################################
+##################################################
+# BOT
+##################################################
 
 
 
@@ -123,12 +121,13 @@ BOT = CMDS.Bot(command_prefix = PREFIX,
                strip_after_prefix = True, # Allow whitespace after prefix
                activity = DSC.Activity(), # Default (set at runtime)
               )
+REACTECH = Reactech(BOT)
 
 
 
-##########################################################################
-# GLOBALS AND METHODS
-##########################################################################
+##################################################
+# GLOBALS
+##################################################
 
 
 
@@ -143,9 +142,10 @@ async def GetVIPs() -> None:
 
 
 
-##########################################################################
-# EVAL & ROLL
-##########################################################################
+##################################################
+# EVAL AND ROLL
+##################################################
+
 
 
 def main_math(msg: str, auto: bool = False) -> (any,str):
@@ -167,7 +167,7 @@ def main_math(msg: str, auto: bool = False) -> (any,str):
     # Filter the message
     txt = "".join([i for i in msg if i in allow])
     
-    _ = ("","error") # Default error return
+    _ = ("", "error") # Default error return
     if auto:
         if len(msg) > 50: return _ # Max 50 characters
         # At least 3 characters (1+1), or 2 if dice (d4)
@@ -182,10 +182,10 @@ def main_math(msg: str, auto: bool = False) -> (any,str):
         if least_one(msg, ["<#","<@","<@&", "\n"]): return _
    
     # Cannot use both dice and complex math (technical limitation)
-    if isdice and least_one(txt, ["**", ">=", "<="]) or least_one(txt, "!><p"):
-            return ("Mix", "error")
+    if isdice and (least_one(txt, ["**", ">=", "<="]) or least_one(txt, "!><p")):
+        return ("Mix", "error")
     
-    else: # Define helper functions, then replace text
+    if not isdice: # Define helper functions, then replace text
         def greater_than(left, right) -> int:
             return 1 if left > right else 0
         def lesser_than(left, right) -> int:
@@ -209,7 +209,7 @@ def main_math(msg: str, auto: bool = False) -> (any,str):
         else: # Dice usage
             result = ROLL(txt)
     except Exception as e:
-        return (e,"error")
+        return (e, "error")
     
     type_ = "dice" if isdice else "math"
     # (3d20) returns [1d20, 1d20, 1d20]. Most commonly, users want the sum
@@ -230,12 +230,12 @@ async def calculate(ctx: CTX, *, txt: str) -> None:
     result = main_math(txt)
     if result[1] == "error":
         if result[0] == "Mix":
-            await rt_err(BOT, ctx, "🚫",
+            await REACTECH.reactech_error(ctx, "🚫",
             "Cannot use complex math (factorial, power, comparison) and dice at the same time!"); return
         # If the error is not a mix, then simply log it to the user
-        awaiter = [rt_err(BOT, ctx, "⁉️", result[0])]
+        awaiter = [REACTECH.reactech_error(ctx, "⁉️", result[0])]
         if "d" in txt: # Include dice documentation if relevant
-            awaiter += [rt_err(BOT, ctx, "🆘", "Dice notation: https://pypi.org/project/dice/")]
+            awaiter += [REACTECH.reactech_error(ctx, "🆘", "Dice notation: https://pypi.org/project/dice/")]
         asyncio.gather(*awaiter) # Send error(s) as reactions
     else: await ctx.send(result[0]) # Send result
 
@@ -244,13 +244,13 @@ async def msg_math(msg: DSC.message) -> None:
     result = main_math(msg.content, True)
     if result[1] != "error": # Only send if it's not an error
         emote = {"math":"🧮", "dice":"🎲"}[result[1]]
-        await reactech(BOT, msg, emote, True, 0, 3600, None, f"msg.channel.send('{result[0]}')")
+        await REACTECH.reactech(msg, emote, True, 0, 3600, None, f"msg.channel.send('{result[0]}')")
 
 
 
-##########################################################################
+##################################################
 # SYSTEM
-##########################################################################
+##################################################
 
 
 
@@ -314,13 +314,12 @@ async def activity(ctx: CTX, action: str = "", *, txt = None) -> DSC.Activity:
             txt = str(len(BOT.guilds)) + " servers" # Default message
             activity = DSC.Activity(type = DSC.ActivityType.watching, name = txt)
         await BOT.change_presence(activity = activity)
-    if ctx: await rt_ok(BOT, ctx, activity) # Feedback
+    if ctx: await REACTECH.reactech_valid(ctx, activity) # Feedback
     return activity
 
 
-@BOT.command(name = "kill", aliases =
-                    mixmatch(["kill", "end", "destroy", "exit", "stop", "terminate"],
-                             ["", "bot", "task", "script", "instance", "yourself"]))
+@BOT.command(name = "kill", aliases = mixmatch(["kill", "end", "destroy", "exit", "stop", "terminate"],
+                             ["", "bot", "task", "script", "instance", "yourself"], remove = "kill"))
 @CMDS.is_owner()              # /kill-yourself is now a valid command (yipee ..?)
 async def kill(ctx: CTX) -> None:
     await ctx.message.add_reaction("✅") # Feedback
@@ -328,9 +327,9 @@ async def kill(ctx: CTX) -> None:
 
 
 
-##########################################################################
-# LOOPS AND EVENTS
-##########################################################################
+##################################################
+# EVENTS
+##################################################
 
 
 
@@ -343,9 +342,9 @@ async def on_message(msg: DSC.message) -> None:
 
 
 
-##########################################################################
+##################################################
 # ERRORS
-##########################################################################
+##################################################
 
 
 
@@ -389,15 +388,15 @@ async def on_command_error(ctx: CTX, error):
     for type_, i in errors:
         if isinstance(error, type_):
             print(type_, i)
-            await rt_err(BOT, ctx, i[0], i[1])
+            await REACTECH.reactech_error(ctx, i[0], i[1])
             return
     print_exception(type(error), error, error.__traceback__)
 
 
 
-##########################################################################
+##################################################
 # RUN
-##########################################################################
+##################################################
 
 
 
@@ -408,19 +407,19 @@ async def on_connect():
 
 @BOT.event
 async def on_ready():
-    print("\nCONNECTED\nLOADING\n")
+    print("\nCONNECTED\n\nLOADING\n")
     # <LOAD BELLOW>
     await GetVIPs()
     await activity(None, "Default")
     # <LOAD ABOVE>
-    print("\LOADED\n")
+    print("\nLOADED\n")
 
 
 async def END():
     print("\nSAVING\n")
     # <SAVE BELLOW>
     # <SAVE ABOVE>
-    print("\nSAVED\nDISCONNECTING\n")
+    print("\nSAVED\n\nDISCONNECTING\n")
     await BOT.close()
 
 
@@ -434,6 +433,7 @@ async def on_disconnect():
 def RUN(TOKEN):
     asyncio_apply()
     BOT.run(TOKEN, reconnect = True)
+
 
 
 if __name__ == "__main__":

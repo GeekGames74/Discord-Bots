@@ -4,26 +4,32 @@ No discord.py here !
 """
 
 
-##########################################################################
+
+##################################################
 # IMPORTS
-##########################################################################
+##################################################
+
 
 
 import os
 
 
-##########################################################################
-# CONSTANTS
-##########################################################################
+
+##################################################
+# GLOBALS
+##################################################
+
 
 
 # Default spacing for the mixmatch function
 _SPACING = ["", "-", "_"]
 
 
-##########################################################################
-# METHODS
-##########################################################################
+
+##################################################
+# FUNCTIONS
+##################################################
+
 
 
 def isiterable(var: any, allowstring: bool = False):
@@ -32,26 +38,29 @@ def isiterable(var: any, allowstring: bool = False):
     return isinstance(var, (list, tuple, set, dict, frozenset, range,))
 
 
-def mixmatch(part1: list, part2: list, spacing: list = _SPACING, keeporder: bool = False) -> list:
+def mixmatch(part1: list, part2: list, spacing: list = _SPACING,
+             keeporder: bool = False, remove: str = None) -> list:
     """
     Create an exhaustive list of names matched from one element of each list.
     Since returned value is a list, do not hesitate to use mixmatch() + mixmatch().
     """
+    if not remove: remove = set();
     names = []
     # Ensure all iterable arguments are converted if needed
     if not isiterable(part1): part1 = [part1]
     if not isiterable(spacing): spacing = [spacing]
     if not isiterable(part2): part2 = [part2]
+    if not isiterable(remove): remove = {remove}
     # Three-fold iteration
     for p1 in part1:
         for p2 in part2:
             for s in spacing:
                 if not p1 or not p2: s= "" # If either is empty, disable spacing ----------+
                 names.append(f"{p1}{s}{p2}") #                                             |
-                # Append name in 'wrong order' if implementation hasn't disallowed it      |
-                if not keeporder: names.append(f"{p2}{s}{p1}") #                           |
                 if not p1 or not p2: break # And only apply the loop once   <--------------+
-    return names
+                # Append name in 'wrong order' if implementation hasn't disallowed it
+                if not keeporder: names.append(f"{p2}{s}{p1}")
+    return [n for n in names if n and n not in remove]
 
 
 def least_one(text, checkfor) -> bool:
