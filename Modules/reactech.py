@@ -14,9 +14,8 @@ Consider subfunctions for regularly-used cases.
 
 import discord as DSC
 from discord.ext.commands import Bot as BOT
-from discord.ext.commands import Context as CTX
 
-import asyncio
+from asyncio import TimeoutError
 
 from Modules.discord_utils import DscConverter
 
@@ -67,7 +66,7 @@ class Reactech:
         
         # Default unzip, these variables can be used in 'method'
         try: reaction, user = await self.bot.wait_for("reaction_add", check = check, timeout = timeout)
-        except asyncio.TimeoutError: pass # Timeout is expected
+        except TimeoutError: pass # Timeout is expected
         except Exception as e: raise e
         
         else: # Activates on valid reaction

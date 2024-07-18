@@ -1,6 +1,7 @@
 """
 Common functions for most cogs and modules.
-No discord.py here !
+Discord.py is not allowed here; see 'discord_utils' MOD for those.
+Below imports should not include any built-in's, to avoid cyclic imports.
 """
 
 
@@ -11,7 +12,7 @@ No discord.py here !
 
 
 
-import os
+from os import path as os_path
 
 
 
@@ -38,19 +39,29 @@ def isiterable(var: any, allowstring: bool = False):
     return isinstance(var, (list, tuple, set, dict, frozenset, range,))
 
 
+def makeiterable(var: any, default_to: str = "list") -> any:
+    """Make a variable iterable, if it isn't already"""
+    if isiterable(var): return var
+    allowed = {"list": list, "tuple": tuple, "set": set}
+    # Neither a key nor a value in allowed
+    if default_to not in allowed.keys() and default_to not in allowed.values():
+        raise TypeError(f"Type '{default_to}' is not allowed")
+    # Resolve the type using the dictionnary
+    if isinstance(default_to, str): default_to = allowed[default_to]
+    return default_to(var) if var is not None else default_to()
+
+
 def mixmatch(part1: list, part2: list, spacing: list = _SPACING,
              keeporder: bool = False, remove: str = None) -> list:
     """
     Create an exhaustive list of names matched from one element of each list.
     Since returned value is a list, do not hesitate to use mixmatch() + mixmatch().
     """
-    if not remove: remove = set();
+    if not remove: remove = set()
     names = []
     # Ensure all iterable arguments are converted if needed
-    if not isiterable(part1): part1 = [part1]
-    if not isiterable(spacing): spacing = [spacing]
-    if not isiterable(part2): part2 = [part2]
-    if not isiterable(remove): remove = {remove}
+    part1 = makeiterable(part1); part2 = makeiterable(spacing)
+    spacing = makeiterable(part2); remove = makeiterable(remove, "set")
     # Three-fold iteration
     for p1 in part1:
         for p2 in part2:
@@ -70,7 +81,7 @@ def least_one(text, checkfor) -> bool:
 
 def localpath(file: str = __file__) -> str:
     """Return absolute path to the current directory."""
-    return os.path.dirname(os.path.realpath(file))
+    return os_path.dirname(os_path.realpath(file))
 
 
 

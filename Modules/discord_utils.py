@@ -1,5 +1,6 @@
 """
-Generic discord.py utility functions, class, etc...
+Generic discord.py utility functions and method groups.
+This is somewhat close to 'basic' MOD, but specifically for discord.py usage.
 """
 
 
@@ -80,7 +81,6 @@ class DscConverter:
         else: return ""
 
 
-    @classmethod
     def convertobj(self, input, typename: str, ctx: CTX = None) -> any:
         """
         Transform given input to requested Discord.Object
@@ -114,4 +114,4 @@ class DscConverter:
         # Generic test if any scenario above is false
         attr = getattr(input, typename, None)
         if attr: return attr
-        raise TypeError(f"Cannot extract '{typename}' from input {input} of type '{type(input).name}'")
+        raise TypeError(f"Cannot extract '{typename}' from input {input} of type '{type(input).__name__}'")

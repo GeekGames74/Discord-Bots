@@ -15,17 +15,15 @@ __version__ = "2.0.0"
 
 
 
-import os
-
 import discord as DSC
 from discord import *
 from discord.ext import commands as CMDS
 from discord.ext.commands import Context as CTX
 
-import asyncio
-from nest_asyncio import apply as asyncio_apply
-
-from traceback import print_exception
+from os import sep as os_sep
+from os import path as os_path
+from asyncio import gather
+from nest_asyncio import apply
 
 from math import factorial, pi
 from dice import roll as ROLL
@@ -63,8 +61,8 @@ def del_i() -> None:
 def check_file(name: str) -> str:
     """Tries to find a file in the current directory."""
     path = localpath(__file__) + name
-    name.replace("/", os.sep)
-    if os.path.isfile(path):
+    name.replace("/", os_sep)
+    if os_path.isfile(path):
         return path
     raise FileNotFoundError(f"{path} was not found in current directory")
 
@@ -236,7 +234,7 @@ async def calculate(ctx: CTX, *, txt: str) -> None:
         awaiter = [REACTECH.reactech_error(ctx, "⁉️", result[0])]
         if "d" in txt: # Include dice documentation if relevant
             awaiter += [REACTECH.reactech_error(ctx, "🆘", "Dice notation: https://pypi.org/project/dice/")]
-        asyncio.gather(*awaiter) # Send error(s) as reactions
+        gather(*awaiter) # Send error(s) as reactions
     else: await ctx.send(result[0]) # Send result
 
 
@@ -390,7 +388,7 @@ async def on_command_error(ctx: CTX, error):
             print(type_, i)
             await REACTECH.reactech_error(ctx, i[0], i[1])
             return
-    print_exception(type(error), error, error.__traceback__)
+    print(error) # 'print()' or 'raise' depending on your needs
 
 
 
@@ -431,7 +429,7 @@ async def on_disconnect():
 
 @with_data("/Credentials/GAMMA_TOKEN.txt", {"TOKEN": 0})
 def RUN(TOKEN):
-    asyncio_apply()
+    apply()
     BOT.run(TOKEN, reconnect = True)
 
 
