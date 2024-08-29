@@ -1,0 +1,11 @@
+{
+    "name": null, "//": "Default display name.",
+    "description": null, "//": "Default description.",
+    "prefix": null, "//": "Default command prefix.",
+    "icon_location": null, "//": "Icon file, relative to /Resources/.",
+    "default_status": null, "//": " online | idle | dnd ",
+    "token_location": null, "//": "Token file, relative to /Credentials/.",
+    "base_intent": null, "//": " none | default | all ",
+    "target_intents": [], "//": "discord.Intents properties to *toggle* from base.",
+    "base_extensions": [], "//": "extensions (from /Extensions/.) to enable."
+}

@@ -12,7 +12,7 @@ This is somewhat close to 'basic' MOD, but specifically for discord.py usage.
 
 
 import discord as DSC
-from discord.ext.commands import bot as BOT
+from discord.ext.commands import bot as Bot
 from discord.ext.commands import Context as CTX
 
 
@@ -45,7 +45,7 @@ _TYPES = {"user":     (DSC.User,            "get_user"                      ),
 
 class DscConverter:
     """Converts discord.py objects."""
-    def __init__(self, bot: BOT) -> None:
+    def __init__(self, bot: Bot) -> None:
         self.bot = bot
 
 
@@ -115,3 +115,14 @@ class DscConverter:
         attr = getattr(input, typename, None)
         if attr: return attr
         raise TypeError(f"Cannot extract '{typename}' from input {input} of type '{type(input).__name__}'")
+
+
+
+##################################################
+# MAIN
+##################################################
+
+
+
+if __name__ == "__main__":
+    pass

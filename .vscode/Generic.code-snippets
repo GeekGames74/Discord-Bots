@@ -27,8 +27,20 @@
 			"##################################################",
 			"# FUNCTIONS",
 			"##################################################",
-			"", "", "", "# functions"
+			"", "", "", "# functions", "", "", "",
+			"##################################################",
+			"# MAIN",
+			"##################################################",
+			"", "", "", "if __name__ == \"__main__\":", "    pass"
 		],
-		"description": "Generic title for a section of python code."
+		"description": "Generic template for code-structure."
+	},
+	"Main Test": {
+		"scope": "python",
+		"prefix": "!main",
+		"body": [
+			"if __name__ == \"__main__\":", "    pass"
+		],
+		"description": "Launcher for debugging and testing."
 	}
 }

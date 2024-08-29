@@ -13,7 +13,7 @@ Consider subfunctions for regularly-used cases.
 
 
 import discord as DSC
-from discord.ext.commands import Bot as BOT
+from discord.ext.commands import Bot as Bot
 
 from asyncio import TimeoutError
 
@@ -29,10 +29,9 @@ from Modules.discord_utils import DscConverter
 
 class Reactech:
     """Dynamic reaction general-use function to interract neatly with user."""
-    def __init__(self, bot: BOT) -> None:
+    def __init__(self, bot: Bot) -> None:
         self.bot = bot
         self.converter = DscConverter(bot)
-        print(self.converter)
 
 
 
@@ -63,11 +62,14 @@ class Reactech:
                     and user != self.bot.user # Reaction does not orriginate from the bot
                     and (not cond # And, if specified, checking another condition
                     or eval(cond, globals(), locals()|{"ctx": ctx, "emoji": emoji})))
-        
         # Default unzip, these variables can be used in 'method'
         try: reaction, user = await self.bot.wait_for("reaction_add", check = check, timeout = timeout)
-        except TimeoutError: pass # Timeout is expected
-        except Exception as e: raise e
+        except TimeoutError:
+            print("timeout")
+            pass # Timeout is expected
+        except Exception as e:
+            print(e)
+            raise e
         
         else: # Activates on valid reaction
             await eval(method, globals(), locals())
@@ -98,3 +100,14 @@ class Reactech:
                 "if recursive == -1 else " + \
                 "user.send(*args)"
         await self.reactech(ctx, "✅", True, -1, 3600, None, func, txt)
+
+
+
+##################################################
+# MAIN
+##################################################
+
+
+
+if __name__ == "__main__":
+    pass

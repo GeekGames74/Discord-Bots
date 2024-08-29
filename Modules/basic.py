@@ -12,6 +12,7 @@ Below imports should not include any built-in's, to avoid cyclic imports.
 
 
 
+from __main__ import __file__
 from os import path as os_path
 
 
@@ -48,7 +49,7 @@ def makeiterable(var: any, default_to: str = "list") -> any:
         raise TypeError(f"Type '{default_to}' is not allowed")
     # Resolve the type using the dictionnary
     if isinstance(default_to, str): default_to = allowed[default_to]
-    return default_to(var) if var is not None else default_to()
+    return default_to([var]) if var is not None else default_to()
 
 
 def mixmatch(part1: list, part2: list, spacing: list = _SPACING,
@@ -60,14 +61,14 @@ def mixmatch(part1: list, part2: list, spacing: list = _SPACING,
     if not remove: remove = set()
     names = []
     # Ensure all iterable arguments are converted if needed
-    part1 = makeiterable(part1); part2 = makeiterable(spacing)
-    spacing = makeiterable(part2); remove = makeiterable(remove, "set")
+    part1 = makeiterable(part1); part2 = makeiterable(part2)
+    spacing = makeiterable(spacing); remove = makeiterable(remove, "set")
     # Three-fold iteration
     for p1 in part1:
         for p2 in part2:
             for s in spacing:
                 if not p1 or not p2: s= "" # If either is empty, disable spacing ----------+
-                names.append(f"{p1}{s}{p2}") #                                             |
+                names.append(f"{p1}{s}{p2}")                                             # |
                 if not p1 or not p2: break # And only apply the loop once   <--------------+
                 # Append name in 'wrong order' if implementation hasn't disallowed it
                 if not keeporder: names.append(f"{p2}{s}{p1}")
@@ -79,9 +80,15 @@ def least_one(text, checkfor) -> bool:
     return any(i in text for i in checkfor)
 
 
-def localpath(file: str = __file__) -> str:
-    """Return absolute path to the current directory."""
-    return os_path.dirname(os_path.realpath(file))
+def project_root() -> str:
+    """Return absolute path to the project root directory."""
+    return os_path.dirname(os_path.realpath(__file__))
+
+
+
+##################################################
+# MAIN
+##################################################
 
 
 

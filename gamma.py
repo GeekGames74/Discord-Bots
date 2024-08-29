@@ -16,12 +16,9 @@ __version__ = "2.0.0"
 
 
 import discord as DSC
-from discord import *
 from discord.ext import commands as CMDS
 from discord.ext.commands import Context as CTX
 
-from os import sep as os_sep
-from os import path as os_path
 from asyncio import gather
 from nest_asyncio import apply
 
@@ -29,74 +26,9 @@ from math import factorial, pi
 from dice import roll as ROLL
 
 from Modules.basic import *
-from Modules.reactech import *
-
-
-
-##################################################
-# DATA
-##################################################
-
-
-
-def del_env(var) -> None:
-    """Delete (var) from execution environment, or at least obfuscate it."""
-    if isinstance(var, str):
-        globals()[var] = "HIDDEN" # Globally Hide it
-        del globals()[var] # And remove it entirely
-    # Accepts iterable input
-    elif isiterable(var):
-        for i in var:
-            del_env(i)
-
-
-def del_i() -> None:
-    """Remove code from the environment, as a precaution."""
-    del_env("In")
-    for k in globals().copy():
-        if k.startswith("_i"):
-            del_env(k)
-
-
-def check_file(name: str) -> str:
-    """Tries to find a file in the current directory."""
-    path = localpath(__file__) + name
-    name.replace("/", os_sep)
-    if os_path.isfile(path):
-        return path
-    raise FileNotFoundError(f"{path} was not found in current directory")
-
-
-def with_data(source: str, data: any):
-    """
-    Generic decorator to securely fetch data from a given source
-    Supported sources: TXT,
-    """
-    def decorator(func: callable) -> callable:
-        def wrapper(*args, **kwargs) -> any:
-            if source.endswith(".txt"):
-                local_data = data_TXT(source, data)
-            else: raise NotImplementedError(f"Cannot get data from {source}")
-            kwargs.update(local_data)
-            result = func(*args, **kwargs)
-            del_env(["data", "local_data"])
-            return result
-        return wrapper
-    return decorator
-
-
-# Data from .txt
-def data_TXT(file: str, data: dict) -> dict:
-    """data = {VarNameToInjectInEnv: IndexOfLine}"""
-    file = check_file(file)
-    local_data = {}
-    with open(file) as F:
-        lines = F.readlines()
-    # Remember : readline() might return "\n" at the end of the line
-    for i,j in data.items():
-        local_data[i] = lines[j].removesuffix("\n")
-    del_env(["file", "data", "lines"])
-    return local_data
+from Modules.reactech import Reactech
+from Modules.data import with_data
+from Modules.botbuilder import build_bot
 
 
 
@@ -106,19 +38,8 @@ def data_TXT(file: str, data: dict) -> dict:
 
 
 
-# Intents required by the bot. Limit to minimum.
-_intents = DSC.Intents.default()
-_intents.message_content = True
-_intents.members = True
-
-
 PREFIX = "/"
-BOT = CMDS.Bot(command_prefix = PREFIX,
-               intents = _intents,
-               case_insensitive = True, # Commands are case incensitive
-               strip_after_prefix = True, # Allow whitespace after prefix
-               activity = DSC.Activity(), # Default (set at runtime)
-              )
+BOT = build_bot("gamma.json")
 REACTECH = Reactech(BOT)
 
 
@@ -317,9 +238,10 @@ async def activity(ctx: CTX, action: str = "", *, txt = None) -> DSC.Activity:
 
 
 @BOT.command(name = "kill", aliases = mixmatch(["kill", "end", "destroy", "exit", "stop", "terminate"],
-                             ["", "bot", "task", "script", "instance", "yourself"], remove = "kill"))
+            ["", "bot", "task", "script", "instance", "yourself"], keeporder = True, remove = "kill"))
 @CMDS.is_owner()              # /kill-yourself is now a valid command (yipee ..?)
 async def kill(ctx: CTX) -> None:
+    """Save and quit the bot instance."""
     await ctx.message.add_reaction("✅") # Feedback
     await END()
 
@@ -334,7 +256,7 @@ async def kill(ctx: CTX) -> None:
 @BOT.event
 async def on_message(msg: DSC.message) -> None:
     await BOT.process_commands(msg)
-    if msg.content.startswith(PREFIX): return # If it's not a bot command
+    if msg.content.startswith(BOT.command_prefix): return # If it's not a bot command
     if msg.author == BOT.user: return # And not sent by itself
     await msg_math(msg)
 
@@ -351,7 +273,7 @@ async def on_command_error(ctx: CTX, error):
     # Message to display on error, along with react emoji
     a= ("⛔","This command requires a role or permission you do not posess.\nIf you think this is a mistake, contact server admins.")
     b= ("📛","This command can only be operated by a bot admin.\nIf you think this is a mistake, contact the developer(s).")
-    c= ("🚫","This command cannot be utilized in the current context.\nRefer to the Error name for more precision.")
+    c= ("🚫","This command cannot be utilized in the current context.\nRefer to the error name for more precision.")
     d= ("⁉️","This command was wrongfully formatted or does not exist.\nConsult proper usage using the HELP command.")
     e= ("❓","A required Discord Object could not be resolved.\nMake sure your object names or IDs are correct before trying again.")
     f= ("‼️","The bot could not execute this command.\nMake sure to setup the application properly.")
@@ -433,8 +355,6 @@ def RUN(TOKEN):
     BOT.run(TOKEN, reconnect = True)
 
 
-
 if __name__ == "__main__":
     print("\nSTARTING\n")
-    del_i()
     RUN()

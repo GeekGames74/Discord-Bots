@@ -1,0 +1,11 @@
+{
+    "name": "Gamma", "//": "Default display name.",
+    "description": "Testing bot for @GeekGames74", "//": "Default description.",
+    "prefix": "/", "//": "Default command prefix.",
+    "icon_location": "Icons/Gamma.png", "//": "Icon file, relative to /Resources/.",
+    "default_status": "online", "//": " online | idle | dnd ",
+    "token_location": "gamma_token.txt", "//": "Token file, relative to /Credentials/.",
+    "base_intent": "default", "//": " none | default | all ",
+    "target_intents": ["message_content", "members"], "//": "discord.Intents properties to *toggle* from base.",
+    "base_extensions": [], "//": "extensions (from /Extensions/.) to enable."
+}
