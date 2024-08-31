@@ -12,9 +12,12 @@ Creation and setup of the bot, with optionnal running.
 
 from discord.ext.commands.bot import Bot
 from discord import Intents, Activity
+from asyncio import run
 
-from Modules.data import data_JSON
+from Modules.data import data_JSON, data_TXT
 from Modules.basic import makeiterable
+from Modules.reactech import Reactech
+
 
 
 ##################################################
@@ -34,6 +37,12 @@ def build_bot(source: str) -> Bot:
     bot = Bot(data["prefix"], case_insensitive = True,
                strip_after_prefix = True, activity = Activity(),
                intents = intents)
+    for ext in data["base_extensions"]:
+        name = "Extensions." + ext.removesuffix(".py").capitalize()
+        run(bot.load_extension(name))
+    location = "/Credentials/" + data["token_location"]
+    TOKEN = data_TXT(location, "token")["token"]
+    bot.run(TOKEN, reconnect = True)
     return bot
 
 

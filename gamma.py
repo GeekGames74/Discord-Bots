@@ -20,7 +20,6 @@ from discord.ext import commands as CMDS
 from discord.ext.commands import Context as CTX
 
 from asyncio import gather
-from nest_asyncio import apply
 
 from math import factorial, pi
 from dice import roll as ROLL
@@ -38,7 +37,6 @@ from Modules.botbuilder import build_bot
 
 
 
-PREFIX = "/"
 BOT = build_bot("gamma.json")
 REACTECH = Reactech(BOT)
 
@@ -149,12 +147,12 @@ async def calculate(ctx: CTX, *, txt: str) -> None:
     result = main_math(txt)
     if result[1] == "error":
         if result[0] == "Mix":
-            await REACTECH.reactech_error(ctx, "🚫",
+            await REACTECH.reactech_user(ctx, "🚫",
             "Cannot use complex math (factorial, power, comparison) and dice at the same time!"); return
         # If the error is not a mix, then simply log it to the user
-        awaiter = [REACTECH.reactech_error(ctx, "⁉️", result[0])]
+        awaiter = [REACTECH.reactech_user(ctx, "⁉️", result[0])]
         if "d" in txt: # Include dice documentation if relevant
-            awaiter += [REACTECH.reactech_error(ctx, "🆘", "Dice notation: https://pypi.org/project/dice/")]
+            awaiter += [REACTECH.reactech_user(ctx, "🆘", "Dice notation: https://pypi.org/project/dice/")]
         gather(*awaiter) # Send error(s) as reactions
     else: await ctx.send(result[0]) # Send result
 
@@ -173,10 +171,7 @@ async def msg_math(msg: DSC.message) -> None:
 
 
 
-@BOT.command(name = "ping", aliases = ["test", "!", "latency"])
-async def ping(ctx: CTX) -> None:
-    """Returns the current latency between discord and the bot."""
-    await ctx.send("pong! " + str(int(BOT.latency*1000)) + "ms")
+
 
 
 # Evaluates expression or runs code from Discord
@@ -195,55 +190,6 @@ async def echo(ctx: CTX, *, txt: str) -> None:
         try: exec(txt)
         except Exception as e: raise e
     except Exception as e: print(e)
-
-
-@BOT.command(name = "activity", aliases = ["status"])
-@CMDS.is_owner()
-async def activity(ctx: CTX, action: str = "", *, txt = None) -> DSC.Activity:
-    """
-    Changes current bot activity and status message.
-    Activity is designated with generic keywords.
-    """
-    action = action.lower()
-    url = "twitch.tv/" # Default url
-    # Does not work with www.
-    if 'twitch.tv/' in action:
-        url = action.replace("www.", "")
-    # Does not work without https://
-    if not url.startswith("https://"): 
-        url = "https://" + url
-
-    activity = None
-    if least_one(action, ['gam', 'play']):
-        activity = DSC.Game(name = txt)
-    if least_one(action, ['stream', 'twitch']):
-        activity = DSC.Streaming(name = txt, url = url)
-    if least_one(action, ['listen']):
-        activity = DSC.Activity(type = DSC.ActivityType.listening, name = txt)
-    if least_one(action, ['watch', 'video']):
-        activity = DSC.Activity(type = DSC.ActivityType.watching, name = txt)
-    if least_one(action, ['def', 'serv', 'bas', 'main']):
-        activity = "Default"
-    
-    if activity is None: # Void
-        activity = "Set activity to None"
-        await BOT.change_presence(activity = None)
-    else: # Anything but the void
-        if txt is None or activity == "Default":
-            txt = str(len(BOT.guilds)) + " servers" # Default message
-            activity = DSC.Activity(type = DSC.ActivityType.watching, name = txt)
-        await BOT.change_presence(activity = activity)
-    if ctx: await REACTECH.reactech_valid(ctx, activity) # Feedback
-    return activity
-
-
-@BOT.command(name = "kill", aliases = mixmatch(["kill", "end", "destroy", "exit", "stop", "terminate"],
-            ["", "bot", "task", "script", "instance", "yourself"], keeporder = True, remove = "kill"))
-@CMDS.is_owner()              # /kill-yourself is now a valid command (yipee ..?)
-async def kill(ctx: CTX) -> None:
-    """Save and quit the bot instance."""
-    await ctx.message.add_reaction("✅") # Feedback
-    await END()
 
 
 
@@ -308,53 +254,7 @@ async def on_command_error(ctx: CTX, error):
     for type_, i in errors:
         if isinstance(error, type_):
             print(type_, i)
-            await REACTECH.reactech_error(ctx, i[0], i[1])
+            await REACTECH.reactech_user(ctx, i[0], i[1])
             return
     print(error) # 'print()' or 'raise' depending on your needs
 
-
-
-##################################################
-# RUN
-##################################################
-
-
-
-@BOT.event
-async def on_connect():
-    print("\nCONNECTING\n")
-
-
-@BOT.event
-async def on_ready():
-    print("\nCONNECTED\n\nLOADING\n")
-    # <LOAD BELLOW>
-    await GetVIPs()
-    await activity(None, "Default")
-    # <LOAD ABOVE>
-    print("\nLOADED\n")
-
-
-async def END():
-    print("\nSAVING\n")
-    # <SAVE BELLOW>
-    # <SAVE ABOVE>
-    print("\nSAVED\n\nDISCONNECTING\n")
-    await BOT.close()
-
-
-@BOT.event
-async def on_disconnect():
-    # No code here (no garantee to be executed)
-    print("\nDISCONNECTED\n")
-
-
-@with_data("/Credentials/GAMMA_TOKEN.txt", {"TOKEN": 0})
-def RUN(TOKEN):
-    apply()
-    BOT.run(TOKEN, reconnect = True)
-
-
-if __name__ == "__main__":
-    print("\nSTARTING\n")
-    RUN()

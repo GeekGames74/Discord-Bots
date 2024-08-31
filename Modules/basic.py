@@ -25,7 +25,8 @@ from os import path as os_path
 
 # Default spacing for the mixmatch function
 _SPACING = ["", "-", "_"]
-
+# Punctuation for the remove_punct function
+_PUNCT = ['.', ',', '?', '!', ';', ':', '"', "'", " "] + _SPACING[1:]
 
 
 ##################################################
@@ -75,9 +76,25 @@ def mixmatch(part1: list, part2: list, spacing: list = _SPACING,
     return [n for n in names if n and n not in remove]
 
 
-def least_one(text, checkfor) -> bool:
-    """Check if there is at least one of (checkfor) in (text)."""
-    return any(i in text for i in checkfor)
+def remove_punct(txt: str) -> str:
+    """Remove punctuation from a string"""
+    for p in _PUNCT:
+        txt = txt.replace(p, "")
+    return txt
+
+
+def plural(obj: any, _n = "s", _0: str = "s", _1: str = "", _p = "s") -> str:
+    """Return a string based on the len of obj."""
+    match len(obj):
+        case 0: return _0
+        case 1: return _1
+        case _: return _n if len(obj)<0 else _p
+    
+
+
+def least_one(iter1, iter2) -> bool:
+    """Check if there is at least one element that is both in iter1 and iter2."""
+    return any(i in iter1 for i in iter2)
 
 
 def project_root() -> str:

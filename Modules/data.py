@@ -15,7 +15,7 @@ from os import sep as os_sep
 from os import path as os_path
 from json import load as json_load
 
-from Modules.basic import project_root
+from Modules.basic import project_root, makeiterable
 
 
 
@@ -39,9 +39,9 @@ def with_data(source: str, *data: any):
     def decorator(func: callable) -> callable:
         def wrapper(*args, **kwargs) -> any:
             if source.endswith(".txt"):
-                local_data = data_TXT(source, data)
+                local_data = data_TXT(source, *data)
             elif source.endswith(".json"):
-                local_data = data_JSON(source, data)
+                local_data = data_JSON(source, *data)
             else: raise NotImplementedError(f"Cannot get data from {source}")
             kwargs.update(local_data)
             result = func(*args, **kwargs)
@@ -59,6 +59,8 @@ def data_TXT(file: str, data: tuple) -> dict:
     (will only get the indexes listed)
     """
     file = checkfile(file)
+    data = makeiterable(data)
+    data[0] = makeiterable(data[0])
     local_data = {}
     with open(file) as F:
         lines = F.readlines()

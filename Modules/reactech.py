@@ -14,8 +14,9 @@ Consider subfunctions for regularly-used cases.
 
 import discord as DSC
 from discord.ext.commands import Bot as Bot
+from discord.ext.commands.context import Context as CTX
 
-from asyncio import TimeoutError
+from asyncio import TimeoutError, run
 
 from Modules.discord_utils import DscConverter
 
@@ -41,12 +42,12 @@ class Reactech:
 
 
 
-    async def reactech(self, ctx, emoji: str, react: bool = True,
+    async def reactech(self, ctx: CTX, emoji: str, react: bool = True,
                     recursive: int = -1, timeout: int = 3600, cond: str = None,
                     method: str = "pass", *args) -> None:
         """
         Configure and execute a dynamic reaction event handler. Example usage :
-        await reactech(BOT, ctx, "👍", True, 10, 300, "1+1==2", "msg.channel.send('Hello World !')")
+        await Reactech.reactech(ctx, "👍", True, 10, 300, "1+1==2", "msg.channel.send('Hello World !')")
         > will send 'Hello World !' in the channel if any user reacts with 👍 and 1+1==2.
         > will expire after 300 seconds or 10 messages.
         """
@@ -65,7 +66,6 @@ class Reactech:
         # Default unzip, these variables can be used in 'method'
         try: reaction, user = await self.bot.wait_for("reaction_add", check = check, timeout = timeout)
         except TimeoutError:
-            print("timeout")
             pass # Timeout is expected
         except Exception as e:
             print(e)
@@ -89,17 +89,21 @@ class Reactech:
 
 
 
-    async def reactech_error(self, ctx, emoji: str, txt: str) -> None:
-        """Error message. Per user, recursive, 15 min."""
+    async def reactech_user(self, ctx: CTX, emoji: str, txt: str) -> None:
+        """Per user, recursive, 15 min."""
         await self.reactech(ctx, emoji, True, -1, 900, None, "user.send(*args)", txt)
 
 
-    async def reactech_valid(self, ctx, txt: str) -> None:
-        """Validation message. Once in channel then per user, recursive, 1h."""
-        func =  "msg.channel.send(*args) " + \
+    async def reactech_channel(self, ctx: CTX, emoji: str, txt: str) -> None:
+        """Once in channel then per user, recursive, 1h."""
+        func =  "msg.reply(*args, mention_author = False) " + \
                 "if recursive == -1 else " + \
                 "user.send(*args)"
-        await self.reactech(ctx, "✅", True, -1, 3600, None, func, txt)
+        await self.reactech(ctx, emoji, True, -1, 3600, None, func, txt)
+
+    async def reactech_valid(self, ctx: CTX, txt: str) -> None:
+        """reactech_channel with auto ✅."""
+        await self.reactech_channel(ctx, "✅", txt)
 
 
 
