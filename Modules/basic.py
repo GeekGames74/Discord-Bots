@@ -26,7 +26,7 @@ from os import path as os_path
 # Default spacing for the mixmatch function
 _SPACING = ["", "-", "_"]
 # Punctuation for the remove_punct function
-_PUNCT = ['.', ',', '?', '!', ';', ':', '"', "'", " "] + _SPACING[1:]
+_PUNCT = ['.', ',', '?', '!', ';', ':', '"', "'", " "]
 
 
 ##################################################

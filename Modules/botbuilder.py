@@ -36,10 +36,10 @@ def build_bot(source: str) -> Bot:
     intents = toggle_intents(base_intent(), data["target_intents"])
     bot = Bot(data["prefix"], case_insensitive = True,
                strip_after_prefix = True, activity = Activity(),
-               intents = intents)
-    for ext in data["base_extensions"]:
+               intents = intents) # Default activity and status are set in @on_ready()
+    for ext in data["base_extensions"]: # No extension is load by default
         name = "Extensions." + ext.removesuffix(".py").capitalize()
-        run(bot.load_extension(name))
+        run(bot.load_extension(name)) # load is asynchronous
     location = "/Credentials/" + data["token_location"]
     TOKEN = data_TXT(location, "token")["token"]
     bot.run(TOKEN, reconnect = True)
