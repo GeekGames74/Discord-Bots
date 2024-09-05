@@ -16,7 +16,7 @@ import discord as DSC
 from discord.ext.commands import Bot as Bot
 from discord.ext.commands.context import Context as CTX
 
-from asyncio import TimeoutError, run
+from asyncio import TimeoutError, run, gather
 
 from Modules.discord_utils import DscConverter
 
@@ -37,7 +37,7 @@ class Reactech:
 
 
 ##################################################
-# FUNCTIONS
+# REACTECH
 ##################################################
 
 
@@ -68,7 +68,6 @@ class Reactech:
         except TimeoutError:
             pass # Timeout is expected
         except Exception as e:
-            print(e)
             raise e
         
         else: # Activates on valid reaction
@@ -104,6 +103,59 @@ class Reactech:
     async def reactech_valid(self, ctx: CTX, txt: str) -> None:
         """reactech_channel with auto ✅."""
         await self.reactech_channel(ctx, "✅", txt)
+
+
+
+##################################################
+# USER_INPUT
+##################################################
+
+
+
+    async def user_input(self, ctx: CTX, emojis: str, default: str = None,
+                            timeout: int = 300, cond: str = None) -> str:
+            """
+            Give the user a choice among several reactions, and return the chosen.
+            On timeout, returns <default>, which is emojis[0] by default.
+            """
+            # Ensure the msg object is actually a message
+            msg = self.converter.convertobj(ctx, "message")
+            # Message cannot have more than 20 reactions
+            if len(emojis) > 20:
+                print("Warning: Cannot have more than 20 emojis here!")
+                emojis = emojis[:20]
+            gather(*[msg.add_reaction(e) for e in emojis])
+
+            def check(reaction: DSC.Reaction, user: DSC.User) -> bool:
+                return (msg == reaction.message # On the current message
+                        and reaction.emoji in emojis # Among the emojis
+                        and user != self.bot.user # Reaction does not orriginate from the bot
+                        and (not cond # And, if specified, checking another condition
+                        or eval(cond, globals(), locals()|{"ctx": ctx, "emojis": emojis})))
+            # Default unzip, these variables can be used in 'method'
+            try: reaction, user = await self.bot.wait_for("reaction_add", check = check, timeout = timeout)
+            except TimeoutError:
+                if default is not None: return default
+                else: return emojis[0] # Default is the first emoji if not specified
+            except Exception as e:
+                raise e
+            else: return reaction.emoji
+
+
+
+##################################################
+# SUBFUNCTIONS
+##################################################
+
+
+
+    async def react_confirm(self, ctx: CTX, false: str, true: str,
+            txt: str, default: bool = False, timeout: int = 300) -> bool:
+        """Creates a basic yes/no condition for the user to react.""" # TODO: Condition
+        msg = await ctx.send(txt)
+        choice = await self.user_input(msg, false+true, "default", timeout)
+        if choice == "default": return default
+        return choice == true
 
 
 

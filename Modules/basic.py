@@ -83,12 +83,13 @@ def remove_punct(txt: str) -> str:
     return txt
 
 
-def plural(obj: any, _n = "s", _0: str = "s", _1: str = "", _p = "s") -> str:
-    """Return a string based on the len of obj."""
-    match len(obj):
+def plural(obj: any, _n = "s", _0 = "s", _1 = "", _p = "s") -> any:
+    """Return a value based on the len of obj."""
+    n = n if isinstance(obj, int) else len(obj)
+    match n:
         case 0: return _0
         case 1: return _1
-        case _: return _n if len(obj)<0 else _p
+        case _: return _n if n<0 else _p
     
 
 
