@@ -121,16 +121,18 @@ class Setup(CMDS.Cog):
         if ctx and ctx.guild: # First use (change nick)
             if not ctx.author.guild_permissions.manage_nicknames:
                 await self.Reactech.reactech_user(ctx, "⛔",
-                        "You need the [Manage nicknames] permission to use this command.")
+                        "You need the `Manage nicknames` permission to use this command.")
             elif ctx.guild.me.display_name != name: # Only change if needed
                 await ctx.guild.me.edit(nick = name)
                 await self.Reactech.reactech_valid(ctx, f"Nick set to `{name}`")
             else: await self.Reactech.reactech_user(ctx, "ℹ️", f"Nick is already `{name}`")
         
-        elif ctx and not await self.bot.is_owner(ctx.author): # Restrict further usage to owner
-            await self.Reactech.reactech_user(ctx, "🚫", "This command is reserved for the bot owner.")
+        elif ctx and not await self.bot.is_owner(ctx.author): # Restrict further usage to owner # TODO: auth
+            await self.Reactech.reactech_user(ctx, "📛", "This command is reserved for the bot owner.")
 
         elif self.bot.user.name != name: # Only change if needed
+                if not await self.Reactech.react_confirm(ctx, "❌", "✅",
+                    "This will rename the bot globally. Are you sure?"): return
                 try: # Test for Discord ratelimit
                     await self.bot.user.edit(username = name)
                     if ctx: await self.Reactech.reactech_valid(ctx, f"Name set to `{name}`")
@@ -175,11 +177,7 @@ class System(CMDS.Cog):
     @CMDS.is_owner() # /kill-yourself is now a valid command (yipee ..?)
     async def kill(self, ctx: CTX) -> None:
         """Save and quit the bot instance."""
-        cogs = list(self.bot.cogs.keys())
-        exts = list(self.bot.extensions.keys())
-        for cog in cogs: # Save cog-related data using   def __unload(self):
-            await self.bot.remove_cog(cog)
-        for ext in exts: # Save ext-related data using   [async] def teardown(bot):
-            await self.bot.unload_extension(ext)
         await ctx.message.add_reaction("✅")
         await self.bot.close()
+        # Save cog: [async] def cog_unload(self):
+        # Save ext: [async] def teardown(bot):

@@ -103,6 +103,24 @@ def project_root() -> str:
     return os_path.dirname(os_path.realpath(__file__))
 
 
+def correspond(needle: str, haystack: set()) -> str:
+    """
+    Return the first element in haystack that matches needle.
+    First by exact match, then prefix, then inclusion.
+    """
+    haystack = makeiterable(haystack, "set")
+    if needle in haystack:
+        return needle
+    for h in haystack:
+        if h.startswith(needle):
+            return h
+    # Inclusion match
+    for h in haystack:
+        if needle in h:
+            return h
+    # Nothing
+    return None
+
 
 ##################################################
 # MAIN

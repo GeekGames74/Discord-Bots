@@ -51,20 +51,23 @@ def with_data(source: str, *data: any):
 
 
 # Data from .txt
-def data_TXT(file: str, data: tuple) -> dict:
+def data_TXT(file: str, data: tuple = None) -> dict:
     """
     <data> is used to map indexes to variables.
     {VarNameToInject: IndexOfLine} as a Dict.
     [NameOfIndex0, NameOfIndex1,] as a List
-    (will only get the indexes listed)
+    (will only get the indexes listed).
+    If data is None, return every line in a tuple.
     """
     file = checkfile(file)
-    data = makeiterable(data)
-    data[0] = makeiterable(data[0])
     local_data = {}
     with open(file) as F:
         lines = F.readlines()
+    # No mapping
+    if data is None: return (l.removesuffix("\n") for l in lines)
     # Turn the list into a Dict of Value:Index
+    data = makeiterable(data)
+    data[0] = makeiterable(data[0])
     if isinstance(data[0], list):
         data[0] = {k:i for i,k in enumerate(data[0])}
     # Remember : readline() might return "\n" at the end of the line

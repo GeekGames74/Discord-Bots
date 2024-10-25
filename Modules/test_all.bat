@@ -22,7 +22,6 @@ for %%f in (Modules\*.py) do (
 
         echo: & echo EXITING !FILE_NAME!
         echo ====================================================================================================
-        echo: & echo: & echo: & echo:
     )
 )
 

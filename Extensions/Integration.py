@@ -40,6 +40,7 @@ async def setup(bot: Bot):
 
 
 _PLUGINS = {
+    "all": ["*", "all", "All", "ALL"],
     "cogs": ["c", "cog", "cogs"],
     "exts": ["e", "x", "xt", "xts", "ext", "exts", "extension", "extensions"],
     "plugins": ["plugin", "plugins"],
@@ -73,14 +74,15 @@ def detect_exts(plugins: tuple) -> tuple:
         exts = set() ; not_exts = set() # Sets to avoid duplicates
         plugins = set([remove_punct(i.capitalize()) for i in plugins])
         all_exts = set([i.removesuffix(".py") for i in listdir(path.dirname(__file__)) if regex.match(i)])
-        if not plugins or "*" in plugins or "All" in plugins:
-            exts = all_exts.copy() ; not_exts.add("*")
-            plugins.discard("*") ; plugins.discard("All")
+        if not plugins or least_one(_PLUGINS["all"], plugins):
+            exts = all_exts.copy() ; not_exts.add(_PLUGINS["all"][0])
+            for i in _PLUGINS["all"]:
+                plugins.discard(i)
         for p in plugins:
             if p.lower() in _PLUGINS["exts"]: exts = exts.union(all_exts)
             elif p in all_exts: exts.add(p)
             else:
-                if p.lower() in _PLUGINS["cogs"]: not_exts.add("*")
+                if p.lower() in _PLUGINS["cogs"]: not_exts.add(_PLUGINS["all"][0])
                 else: not_exts.add(p)
         return exts, not_exts
 
@@ -104,7 +106,7 @@ def detect_cogs(bot: Bot, not_exts: set) -> tuple:
     """Detects the list of cogs to access. Returns {cogs}, {unknown}."""
     cogs = {} ; unknown = set()
     all_cogs = get_all_cogs(bot)
-    if "*" in not_exts:
+    if _PLUGINS["all"][0] in not_exts:
         cogs = all_cogs.copy() ; not_exts.remove("*")
     for i in not_exts:
         if i in all_cogs.keys(): cogs[i] = all_cogs[i]
@@ -131,6 +133,7 @@ async def format_feedback(feedback: dict, action: str, ctx: CTX) -> str:
         if txt[1]: gatherer.append(react.reactech_channel(ctx, e, txt[1]))
         if txt[2]: gatherer.append(react.reactech_channel(ctx, "❓", txt[2]))
         if txt[3]: gatherer.append(react.reactech_channel(ctx, "❌", txt[3]))
+        if not gatherer: gatherer.append(react.reactech_channel(ctx, "ℹ️", "Nothing changed."))
         gather(*gatherer)
     return "\n\n".join([i for i in txt if i]).replace("`", "'")
 
@@ -139,6 +142,7 @@ async def format_feedback(feedback: dict, action: str, ctx: CTX) -> str:
 def feedback_line(action: str, status: str, type: str, input: set) -> str:
     """Returns a formatted line for the feedback function."""
     if len(input) == 0: return ""
+    input = sorted(input)
 
     txt = f"{len(input)} {type}{plural(input)}" # X thing(s)
     txt += _FEEDBACK[status][plural(input,0,1,0,1)] # has/have been [+ simple action descriptor]
@@ -187,20 +191,23 @@ class Plugins(CMDS.Cog):
     async def plugins(self, ctx: CTX, action: str = "list", *plugins: str) -> str:
         """Manage plugins in relation to the current bot instance."""
         action = action.lower() ; txt = ""
-        if not action or action in _PLUGINS["cogs"] + _PLUGINS["exts"] + ["*", "all"]:
+        if not action or action in _PLUGINS["cogs"] + _PLUGINS["exts"] + _PLUGINS["all"]:
             plugins = set(plugins).union(set([action]))
             action = "list"
+        globalscope = not plugins or least_one(_PLUGINS["all"], plugins)
 
         # LIST
         if action in _PLUGINS["list"]:
-            cogs = self.bot.cogs ; exts = self.bot.extensions
-            _exts = [i.removeprefix("Extensions.") for i in exts]
+            cogs = sorted(self.bot.cogs) ; exts = self.bot.extensions
+            _exts = sorted([i.removeprefix("Extensions.") for i in exts])
+            showexts = least_one(_PLUGINS["exts"], plugins) or globalscope
+            showcogs = least_one(_PLUGINS["cogs"], plugins) or globalscope
             
-            if not plugins or least_one(["*", "all"] + _PLUGINS["cogs"], plugins):
+            if showcogs or not showexts:
                 if len(cogs) == 0: txt += "0 cogs currently loaded.\n" # On 0
                 else: txt += f"{len(cogs)} cog{plural(cogs)} currently loaded: `" + "`, `".join(cogs) +"`\n"
             
-            if not plugins or least_one(["*", "all"] + _PLUGINS["exts"], plugins):
+            if showexts or not showcogs:
                 if len(_exts) == 0: txt += f"0 extensions currently loaded.\n" # On 0
                 else: txt += f"{len(_exts)} extension{plural(_exts)} currently loaded: `" + "`, `".join(_exts) +"`\n"
             
@@ -217,9 +224,11 @@ class Plugins(CMDS.Cog):
             action = "load"
             for ext in exts: # Extensions
                 try: await self.bot.load_extension("Extensions." + ext)
-                except CMDS.ExtensionAlreadyLoaded: feedback["nochange"]["exts"].add(ext) # Already loaded
+                except CMDS.ExtensionAlreadyLoaded: # Already loaded
+                    if not globalscope: # Ignore exception if all wildcard is used
+                        feedback["nochange"]["exts"].add(ext)
                 except CMDS.ExtensionNotFound: feedback["unknown"].add(ext) # Not found
-                except Exception as e: feedback["errors"]["exts"][ext] = e.__class__.__name__
+                except Exception as e: feedback["errors"]["exts"][ext] = e
                 else: feedback["ok"]["exts"].add(ext)
             
             cogs, unknown = detect_cogs(self.bot, not_exts)
@@ -229,8 +238,9 @@ class Plugins(CMDS.Cog):
                 try: await self.bot.add_cog(cog(self.bot))
                 except DSC.ClientException:
                     if not cog.__module__.removeprefix("Extensions.") in exts: # If not added during ext loading
-                        feedback["nochange"]["cogs"].add(name) # Already loaded
-                except Exception as e: feedback["errors"]["cogs"][name] = e.__class__.__name__
+                        if not globalscope: # Ignore exception if all wildcard is used
+                            feedback["nochange"]["cogs"].add(name) # Already loaded
+                except Exception as e: feedback["errors"]["cogs"][name] = e
                 else: feedback["ok"]["cogs"].add(name)
             
         # RELOAD
@@ -245,9 +255,11 @@ class Plugins(CMDS.Cog):
             
             for ext in exts: # Extensions
                 try: await self.bot.reload_extension("Extensions." + ext)
-                except CMDS.ExtensionNotLoaded: feedback["nochange"]["exts"].add(ext) # Not loaded
+                except CMDS.ExtensionNotLoaded:
+                    if not globalscope: # Ignore exception if all wildcard is used
+                        feedback["nochange"]["exts"].add(ext) # Not loaded
                 except CMDS.ExtensionNotFound: feedback["unknown"].add(ext) # Not found
-                except Exception as e: feedback["errors"]["exts"][ext] = e.__class__.__name__
+                except Exception as e: feedback["errors"]["exts"][ext] = e
                 else: feedback["ok"]["exts"].add(ext)
         
         elif action in _PLUGINS["unload"]: # UNLOAD
@@ -258,24 +270,28 @@ class Plugins(CMDS.Cog):
             for ext in exts: # Extensions
                 if ext == path.basename(__file__).removesuffix(".py") and ctx:
                     choice = await self.Reactech.react_confirm(ctx, "❌", "✅",
-                        f"Unloading `{ext}` will disable Plugins management. Proceed anyway ?")
+                        f"Unloading `{ext}` will disable Plugins management. Proceed anyway?")
                     if not choice: continue
                 try: await self.bot.unload_extension("Extensions." + ext)
-                except CMDS.ExtensionNotLoaded: feedback["nochange"]["exts"].add(ext) # Already loaded
+                except CMDS.ExtensionNotLoaded:
+                    if not globalscope: # Ignore exception if all wildcard is used
+                        feedback["nochange"]["exts"].add(ext) # Already unloaded
                 except CMDS.ExtensionNotFound: feedback["unknown"].add(ext) # Not found
-                except Exception as e: feedback["errors"]["exts"][ext] = e.__class__.__name__
+                except Exception as e: feedback["errors"]["exts"][ext] = e
                 else: feedback["ok"]["exts"].add(ext)
 
             for name, cog in cogs.items(): # Cogs
                 if name == "Plugins" and ctx:
                     if choice is None: choice = await self.Reactech.react_confirm(ctx, "❌", "✅",
-                            f"Removing `{name}` will disable Plugins management. Proceed anyway ?")
+                            f"Removing `{name}` will disable Plugins management. Proceed anyway?")
                     if not choice: continue
                 try: await self.bot.remove_cog(name)
-                except Exception as e: feedback["errors"]["cogs"][name] = e.__class__.__name__
+                except Exception as e: feedback["errors"]["cogs"][name] = e
                 else: feedback["ok"]["cogs"].add(name)
         
         elif ctx: await self.Reactech.reactech_user(ctx, "⁉️", f"Action `{action}` is not recognized.")
+        for e in feedback["errors"]["exts"].items(): print(e)
+        for e in feedback["errors"]["cogs"].items(): print(e)
         return await format_feedback(feedback, action, ctx)
 
 

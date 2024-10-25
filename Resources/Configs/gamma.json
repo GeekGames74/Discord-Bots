@@ -1,7 +1,7 @@
 {
     "prefix": "/", "//": "Default command prefix.",
-    "token_location": "gamma_token.txt", "//": "Token file, relative to /Credentials/.",
+    "token_location": "gamma_token.txt", "//": "Token file, relative to /Secret/.",
     "base_intent": "default", "//": " none | default | all ",
     "target_intents": ["message_content", "members"], "//": "discord.Intents properties to *toggle* from base.",
-    "base_extensions": ["Common", "Integration"], "//": "extensions (from /Extensions/.) to enable."
+    "base_extensions": ["Core", "Integration", "Temporary"], "//": "extensions (from /Extensions/.) to enable."
 }
