@@ -5,3 +5,4 @@ Secret/*
 *Token*
 *TOKEN*
 venv/
+*.log

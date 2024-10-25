@@ -13,9 +13,6 @@ example usage: python3 bot.py <bot_name>
 
 
 
-from discord.ext.commands.bot import Bot
-from discord import Intents, Activity
-
 from platform import system as pltf_sys
 from os import listdir, path
 from sys import argv
@@ -36,13 +33,15 @@ from Modules.basic import makeiterable, correspond, least_one
 
 
 
-async def build_bot(path: str) -> Bot:
+async def build_bot(path: str):
     """
     Create the bot instance with the given source file.
     Location is given relative to ./Resources/Configs/. directory.
     """
+    from discord.ext.commands.bot import Bot
+    from discord import Intents, Activity
     if not path.endswith(".json"): path += ".json"
-    data = data_JSON("./Resources/Configs/" + path)
+    data = data_JSON("/Resources/Configs/" + path)
     base_intent = getattr(Intents(), data["base_intent"])
     intents = toggle_intents(base_intent(), data["target_intents"])
     bot = Bot(data["prefix"], case_insensitive = True,
@@ -58,7 +57,7 @@ async def build_bot(path: str) -> Bot:
 
 
 
-def toggle_intents(obj: Intents, intents: list) -> Intents:
+def toggle_intents(obj, intents):
     """Toggle the intents in the obj, then return it."""
     intents = makeiterable(intents)
     for name in intents:
@@ -125,16 +124,16 @@ def start_screen(venv_path: str, to_launch: set):
             print(f"Creating virtual environment at {venv_path}...")
             run(f"python3 -m venv {venv_path}", shell=True)
 
-        name = "DiscordBot;" + n + datetime.today().strftime(";%d/%m/%Y;%H:%M:%S")
+        name = "DiscordBot;" + n + datetime.today().strftime(";%d-%m-%Y;%H:%M:%S")
         screen = f"screen -dmS '{name}' bash -c"
         source = f"source {venv_path}/bin/activate"
         pip = "pip install -r requirements.txt"
         python = "python3 bot.py " + n + " --no-screen"
         cmd =  f"{screen} '{source} && {pip} && {python}'"
-
         print(f"Starting '{n}' in screen '{name}'")
-        run(cmd, shell=True)
-
+        result = run(cmd, shell=True, capture_output=True, text=True)
+        if result.stderr: print(result.stderr)
+        if result.stdout: print(result.stdout)
 
 
 def get_active_bots():
@@ -149,35 +148,13 @@ def get_active_bots():
     
     active_bots = set()
     for session in sessions:
-        # 00000.DiscordBot;name;dd/mm/yyyy;hh:mm:ss'
+        # 00000.DiscordBot;name;dd-mm-yyyy;hh:mm:ss'
         parts = session.split('.')
         if len(parts) <= 1 or not parts[1].startswith("DiscordBot;"): continue
-        
         session_id, session_info = parts[0], parts[1]
         bot_name = session_info.split(';')[1]
-        if is_active(session_id):
-            active_bots.add(bot_name)
-        else: kill_screen(session_id, bot_name)
-
+        active_bots.add(bot_name)
     return active_bots
-
-
-
-def is_active(session_id: str) -> bool:
-    """
-    Check if the screen session is running 'python3 bot.py'.
-    """
-    result = run(['ps', '-p', session_id, '-o', 'cmd='], stdout=PIPE, text=True)
-    process_cmd = result.stdout.strip()
-    return 'python3 bot.py' in process_cmd
-
-
-
-def kill_screen(session_id: str, name: str = None):
-    """Terminates a screen session by its session ID."""
-    run(['screen', '-S', session_id, '-X', 'quit'], check=True)
-    txt = f" (which used to run '{name}')" if name else ""
-    print(f"Killed screen session {session_id}{txt}.")
 
 
 
@@ -208,10 +185,11 @@ if __name__ == "__main__":
         require(data_TXT("./requirements.txt"))
         main(to_launch)
     elif pltf_sys() == "Linux":
-        try: require(data_TXT("./requirements.txt"))
+        try: require(data_TXT("/requirements.txt"))
         except (VersionConflict, DistributionNotFound) as e:
             if not noscreen: start_screen("./venv", to_launch)
             else: raise e
+        except Exception as e: raise e
         else: main(to_launch)
     else: raise NotImplementedError("Can only run in windows and linux")
 
