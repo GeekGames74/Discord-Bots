@@ -70,13 +70,17 @@ class Temp(CMDS.Cog):
 
     @CMDS.command(name = "calculator", aliases = ["calculate", "calc", "evaluate", "eval", "math",
                                             "dice", "roll", "d", "r", "diceroll", "rolldice"])
-    async def calculate(self, ctx: CTX, *, txt: str) -> None:
+    async def calculate(self, ctx: CTX, *, msg: str) -> None:
         """
         Allows mathematical evaluation of a simple expression (it's a calculator !)
         Can also dice.py notations (see https://pypi.org/project/dice/).
         Can also use factorial '!(5)', pi 'p', and comparisons '<=(5,10)'.
         """
-        result = main_math(txt)
+        splitted = [i for i in (msg).split("#")]
+        txt = "".join([splitted[i] for i in range(len(splitted)) if not i%2])
+        comment = splitted[-1] if not len(splitted)%2 else ""
+        comment = " #" + comment.rstrip() if comment else ""
+        result = main_math(txt.replace(" ", ""))
         if result[1] == "error":
             if result[0] == "Mix":
                 await self.Reactech.reactech_user(ctx, "🚫",
@@ -86,7 +90,7 @@ class Temp(CMDS.Cog):
             if "d" in txt: # Include dice documentation if relevant
                 awaiter += [self.Reactech.reactech_user(ctx, "🆘", "Dice notation: https://pypi.org/project/dice/")]
             gather(*awaiter) # Send error(s) as reactions
-        else: await ctx.send(result[0]) # Send result
+        else: await ctx.message.reply(str(result[0]) + comment, mention_author = False) # Send result
 
 
 
@@ -99,10 +103,15 @@ class Temp(CMDS.Cog):
 
 
     async def msg_math(self, msg: DSC.message) -> None:
-        result = main_math(msg.content, True)
+        splitted = [i for i in (" " + msg.content).split("#") if i]
+        txt = "".join([splitted[i] for i in range(len(splitted)) if not i%2])
+        comment = splitted[-1] if not len(splitted)%2 else ""
+        comment = " #" + comment.rstrip() if comment else ""
+        result = main_math(txt.replace(" ", ""), True)
         if result[1] != "error": # Only send if it's not an error
             emote = {"math":"🧮", "dice":"🎲"}[result[1]]
-            await self.Reactech.reactech(msg, emote, True, 0, 3600, None, f"msg.channel.send('{result[0]}')")
+            await self.Reactech.reactech(msg, emote, True, 0, 3600, None,
+                f"msg.reply('{str(result[0]) + comment}', mention_author = False)")
 
 
 

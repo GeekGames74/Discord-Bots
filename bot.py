@@ -17,7 +17,7 @@ from platform import system as pltf_sys
 from os import listdir, path
 from sys import argv
 from subprocess import run, PIPE
-from asyncio import get_event_loop, gather
+from asyncio import gather
 from asyncio import run as asyncrun
 from pkg_resources import require, VersionConflict, DistributionNotFound
 from datetime import datetime
