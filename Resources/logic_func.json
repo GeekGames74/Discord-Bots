@@ -1,0 +1,515 @@
+{
+    "abs": {
+        "aliases": [
+            "fabs"
+        ],
+        "origin": ""
+    },
+    "acos": {
+        "aliases": [
+            "arcos",
+            "arccos",
+            "acosine",
+            "arcosine",
+            "arccosine"
+        ],
+        "origin": "math"
+    },
+    "acosh": {
+        "aliases": [
+            "arcosh",
+            "arccosh",
+            "acosineh",
+            "arcosineh",
+            "arccosineh",
+            "hyperarcos",
+            "hyperarccos",
+            "hyperacosine",
+            "hyperarcosine",
+            "hyperarccosine"
+        ],
+        "origin": "math"
+    },
+    "and": {
+        "aliases": [],
+        "origin": "",
+        "placement": "mid",
+        "priority": 5,
+        "symbols": [
+            "&",
+            "&&"
+        ]
+    },
+    "asin": {
+        "aliases": [
+            "asine",
+            "arcsine"
+        ],
+        "origin": "math"
+    },
+    "asinh": {
+        "aliases": [
+            "asineh",
+            "arcsineh",
+            "hyperasine",
+            "hyperarcsine"
+        ],
+        "origin": "math"
+    },
+    "atan": {
+        "aliases": [
+            "atangent",
+            "arctangent"
+        ],
+        "origin": "math"
+    },
+    "atanh": {
+        "aliases": [
+            "atangenth",
+            "arctangenth",
+            "hyperatangent",
+            "hyperarctangent"
+        ],
+        "origin": "math"
+    },
+    "cbrt": {
+        "aliases": [
+            "cuberoot"
+        ],
+        "origin": "math"
+    },
+    "ceil": {
+        "aliases": [
+            "ceiling"
+        ],
+        "origin": "math"
+    },
+    "comb": {
+        "aliases": [
+            "combine"
+        ],
+        "origin": "math"
+    },
+    "copysign": {
+        "aliases": [],
+        "origin": "math"
+    },
+    "cos": {
+        "aliases": [
+            "cosine"
+        ],
+        "origin": "math"
+    },
+    "cosh": {
+        "aliases": [
+            "hypercos",
+            "cosineh",
+            "hypercosine"
+        ],
+        "origin": "math"
+    },
+    "degrees": {
+        "aliases": [
+            "deg"
+        ],
+        "origin": "math"
+    },
+    "div": {
+        "aliases": [
+            "divide",
+            "division"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 2,
+        "symbols": [
+            "/"
+        ]
+    },
+    "ehold": {
+        "aliases": [],
+        "origin": ""
+    },
+    "eq": {
+        "aliases": [
+            "equal",
+            "equals",
+            "equality",
+            "equivalent",
+            "equivalence"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 6,
+        "symbols": [
+            "=",
+            "=="
+        ]
+    },
+    "exp": {
+        "aliases": [
+            "exponent"
+        ],
+        "origin": "math"
+    },
+    "factorial": {
+        "aliases": [
+            "fact",
+            "fct"
+        ],
+        "origin": "math",
+        "placement": "after",
+        "priority": 1,
+        "symbols": [
+            "!"
+        ]
+    },
+    "falsehold": {
+        "aliases": [],
+        "origin": ""
+    },
+    "floor": {
+        "aliases": [],
+        "origin": "math"
+    },
+    "gcd": {
+        "aliases": [
+            "grcd",
+            "grtcd",
+            "pgcd"
+        ],
+        "origin": "math"
+    },
+    "grt": {
+        "aliases": [
+            "greater",
+            "greaterthan"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 6,
+        "symbols": [
+            ">"
+        ]
+    },
+    "grteq": {
+        "aliases": [
+            "greatereq",
+            "greathereqthan",
+            "greaterequal",
+            "greatherequalthan",
+            "greateroreq",
+            "greatheroreqthan",
+            "greaterorequal",
+            "greatherorequalthan",
+            "greathereqto",
+            "greatherequalto",
+            "greatheroreqto",
+            "greatherorequalto"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 6,
+        "symbols": [
+            "≥",
+            ">=",
+            " =>"
+        ]
+    },
+    "int": {
+        "aliases": [
+            "integer"
+        ],
+        "origin": ""
+    },
+    "intdiv": {
+        "aliases": [
+            "intdivide",
+            "intdivision",
+            "integerdivide",
+            "integerdivision"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 2,
+        "symbols": [
+            ":",
+            "//"
+        ]
+    },
+    "isclose": {
+        "aliases": [
+            "isalmost"
+        ],
+        "origin": "math"
+    },
+    "lcm": {
+        "aliases": [
+            "pcm",
+            "ppcm"
+        ],
+        "origin": "math"
+    },
+    "log": {
+        "aliases": [
+            "logarythm"
+        ],
+        "origin": "math"
+    },
+    "lwr": {
+        "aliases": [
+            "lower",
+            "lowerthan"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 6,
+        "symbols": [
+            "<"
+        ]
+    },
+    "lwreq": {
+        "aliases": [
+            "lowereq",
+            "lowereqthan",
+            "lowerequal",
+            "lowerequalthan",
+            "loweroreq",
+            "loweroreqthan",
+            "lowerorequal",
+            "lowerorequalthan",
+            "lowereqto",
+            "lowerequalto",
+            "loweroreqto",
+            "lowerorequalto"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 6,
+        "symbols": [
+            "≤",
+            "<=",
+            "=<"
+        ]
+    },
+    "max": {
+        "aliases": [
+            "maximum",
+            "greatest"
+        ],
+        "origin": ""
+    },
+    "min": {
+        "aliases": [
+            "minimum",
+            "lowest"
+        ],
+        "origin": ""
+    },
+    "mod": {
+        "aliases": [
+            "modular",
+            "modulo",
+            "remainder"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 4,
+        "symbols": [
+            "%"
+        ]
+    },
+    "mul": {
+        "aliases": [
+            "mult",
+            "multiple",
+            "multiply"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 2,
+        "symbols": [
+            "*"
+        ]
+    },
+    "neq": {
+        "aliases": [
+            "noteq",
+            "nequal",
+            "notequal"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 6,
+        "symbols": [
+            "≠",
+            "!="
+        ]
+    },
+    "not": {
+        "aliases": [],
+        "origin": ""
+    },
+    "or": {
+        "aliases": [],
+        "origin": "",
+        "placement": "mid",
+        "priority": 5,
+        "symbols": [
+            "|",
+            "||"
+        ]
+    },
+    "perm": {
+        "aliases": [
+            "permute",
+            "permutation",
+            "permutations"
+        ],
+        "origin": "math"
+    },
+    "pihold": {
+        "aliases": [],
+        "origin": ""
+    },
+    "pow": {
+        "aliases": [
+            "power",
+            "raise"
+        ],
+        "origin": "math",
+        "placement": "mid",
+        "priority": 1,
+        "symbols": [
+            "^",
+            "**"
+        ]
+    },
+    "radians": {
+        "aliases": [
+            "rad"
+        ],
+        "origin": "math"
+    },
+    "randint": {
+        "aliases": [
+            "randomint",
+            "randinteger",
+            "randominteger"
+        ],
+        "origin": "random"
+    },
+    "random": {
+        "aliases": [],
+        "origin": "random"
+    },
+    "randrange": {
+        "aliases": [
+            "randomrange"
+        ],
+        "origin": "random"
+    },
+    "root": {
+        "aliases": [],
+        "origin": ""
+    },
+    "round": {
+        "aliases": [],
+        "origin": "",
+        "placement": "after",
+        "priority": 1,
+        "symbols": [
+            "~"
+        ]
+    },
+    "sin": {
+        "aliases": [
+            "sine"
+        ],
+        "origin": "math"
+    },
+    "sinh": {
+        "aliases": [
+            "hypersin",
+            "sineh",
+            "hypersine"
+        ],
+        "origin": "math"
+    },
+    "sqrt": {
+        "aliases": [
+            "squarert",
+            "sqroot",
+            "squareroot"
+        ],
+        "origin": "math"
+    },
+    "sqr": {
+        "aliases": [
+            "squr",
+            "square"
+        ],
+        "origin": "",
+        "placement": "after",
+        "priority": 1,
+        "symbols": [
+            "²"
+        ]
+    },
+    "sub": {
+        "aliases": [
+            "substract"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 3,
+        "symbols": [
+            "-"
+        ]
+    },
+    "sum": {
+        "aliases": [
+            "add",
+            "addition"
+        ],
+        "origin": "",
+        "placement": "mid",
+        "priority": 3,
+        "symbols": [
+            "+"
+        ]
+    },
+    "tan": {
+        "aliases": [
+            "tangent"
+        ],
+        "origin": "math"
+    },
+    "tanh": {
+        "aliases": [
+            "hypertan",
+            "tangenth",
+            "hypertangent"
+        ],
+        "origin": "math"
+    },
+    "tauhold": {
+        "aliases": [],
+        "origin": ""
+    },
+    "truehold": {
+        "aliases": [],
+        "origin": ""
+    },
+    "trunc": {
+        "aliases": [
+            "truncate",
+            "truncation"
+        ],
+        "origin": "math"
+    },
+    "uniform": {
+        "aliases": [],
+        "origin": "random"
+    }
+}

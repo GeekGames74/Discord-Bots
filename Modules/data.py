@@ -61,7 +61,7 @@ def data_TXT(file: str, data: tuple = None) -> dict:
     """
     file = checkfile(file)
     local_data = {}
-    with open(file) as F:
+    with open(file, encoding="utf-8") as F:
         lines = F.readlines()
     # No mapping
     if data is None: return (l.removesuffix("\n") for l in lines)
@@ -85,7 +85,7 @@ def data_JSON(file: str, data: tuple = None) -> dict:
     (default False --> no filter)
     """
     file = checkfile(file)
-    with open(file) as F:
+    with open(file, encoding="utf-8") as F:
         content = json_load(F)
     # No special mapping; Proceed
     if data is None: return content
