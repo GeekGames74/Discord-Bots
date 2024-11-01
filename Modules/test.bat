@@ -20,16 +20,14 @@ GOTO:MAIN
 
 :Run
     set FILE_NAME=%~1
-    if /i not "!FILE_NAME!"=="__init__" (
-        echo ====================================================================================================
-        echo RUNNING !FILE_NAME! & echo:
-        
-        :: Run the module using -m to maintain the package context
-        python -m Modules.!FILE_NAME!
+    echo ====================================================================================================
+    echo RUNNING !FILE_NAME! & echo:
+    
+    :: Run the module using -m to maintain the package context
+    python -m Modules.!FILE_NAME!
 
-        echo: & echo EXITING !FILE_NAME!
-        echo ====================================================================================================
-    )
+    echo: & echo EXITING !FILE_NAME!
+    echo ====================================================================================================
 EXIT /B 0
 
 :MAIN

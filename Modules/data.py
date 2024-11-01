@@ -11,11 +11,10 @@ Local formats (txt, json, local bd) or external (bd, endpoints...).
 
 
 
-from os import sep as os_sep
 from os import path as os_path
 from json import load as json_load
 
-from Modules.basic import project_root, makeiterable
+from Modules.basic import path_from_root, makeiterable
 
 
 
@@ -27,10 +26,8 @@ from Modules.basic import project_root, makeiterable
 
 def checkfile(name: str) -> str:
     """Tries to find a file in the current directory."""
-    path = project_root() + name
-    name.replace("/", os_sep)
-    if os_path.isfile(path):
-        return path
+    path = path_from_root(name)
+    if os_path.isfile(path): return path
     raise FileNotFoundError(f"{path} was not found in current directory")
 
 

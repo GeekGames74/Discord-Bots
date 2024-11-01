@@ -10,6 +10,7 @@ Contains generic setup and managing functions.
 ##################################################
 
 
+
 import discord as DSC
 from discord import Status, Activity
 from discord.ext import commands as CMDS

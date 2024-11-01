@@ -72,6 +72,12 @@
         ],
         "origin": "math"
     },
+    "avg": {
+        "aliases": [
+            "average"
+        ],
+        "origin": ""
+    },
     "cbrt": {
         "aliases": [
             "cuberoot"
@@ -152,6 +158,20 @@
         ],
         "origin": "math"
     },
+    "extract": {
+        "aliases": [
+            "verbose",
+            "append",
+            "ammend",
+            "comment"
+        ],
+        "origin": "",
+        "placement": "after",
+        "priority": 1,
+        "symbols": [
+            "#"
+        ]
+    },
     "factorial": {
         "aliases": [
             "fact",
@@ -213,8 +233,18 @@
         "symbols": [
             "≥",
             ">=",
-            " =>"
+            "=>"
         ]
+    },
+    "ifelse": {
+        "aliases": [
+            "if",
+            "ifthen",
+            "ifelse",
+            "ifthenelse",
+            "ifthisthenthat"
+        ],
+        "origin": ""
     },
     "int": {
         "aliases": [
@@ -243,6 +273,52 @@
         ],
         "origin": "math"
     },
+    "iter": {
+        "aliases": [
+            "iterate"
+        ],
+        "origin": "",
+        "resolve": false
+    },
+    "iteravg": {
+        "aliases": [
+            "iterateavg",
+            "iteraverage",
+            "iterateaverage"
+        ],
+        "origin": "",
+        "resolve": false
+    },
+    "itermax": {
+        "aliases": [
+            "iteratemax",
+            "itermaximum",
+            "iteratemaximum"
+        ],
+        "origin": "",
+        "resolve": false
+    },
+    "itermin": {
+        "aliases": [
+            "iteratemin",
+            "iterminimum",
+            "iterateminimum"
+        ],
+        "origin": "",
+        "resolve": false
+    },
+    "keephigh": {
+        "aliases": [
+            "keephighest"
+        ],
+        "origin": ""
+    },
+    "keeplow": {
+        "aliases": [
+            "keeplowest"
+        ],
+        "origin": ""
+    },
     "lcm": {
         "aliases": [
             "pcm",
@@ -255,6 +331,26 @@
             "logarythm"
         ],
         "origin": "math"
+    },
+    "logtwo": {
+        "aliases": [
+            "logarythmtwo"
+        ],
+        "origin": ""
+    },
+    "logten": {
+        "aliases": [
+            "logarythmten"
+        ],
+        "origin": ""
+    },
+    "loge": {
+        "aliases": [
+            "logexp",
+            "logarythmexp",
+            "logarythme"
+        ],
+        "origin": ""
     },
     "lwr": {
         "aliases": [
@@ -345,6 +441,10 @@
             "≠",
             "!="
         ]
+    },
+    "nonehold": {
+        "aliases": [],
+        "origin": ""
     },
     "not": {
         "aliases": [],
@@ -507,6 +607,15 @@
             "truncation"
         ],
         "origin": "math"
+    },
+    "try": {
+        "aliases": [
+            "tryexcept",
+            "trycatch",
+            "tryelse"
+        ],
+        "origin": "",
+        "resolve": false
     },
     "uniform": {
         "aliases": [],

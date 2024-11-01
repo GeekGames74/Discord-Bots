@@ -11,6 +11,7 @@ Logic module for calculation, randomness, and boolean operations.
 
 
 from Modules.data import data_JSON
+from Modules.basic import isiterable
 import math ; import random
 
 
@@ -31,7 +32,7 @@ def symb_comma() -> set: return set(_SYMBOLS.keys()).union({","})
 
 _LOGIC_FUNC = {} ; _SYMBOLS = {} ; _NAMES = {}
 _MID = [{} for i in "x"*6]
-_AFTER = [{} for i in "x"*6]
+_AFTER = {} ; _NO_RESOLVE = set()
 
 _CONSTANTS = {
     "pihold()": ["pi", "π"],
@@ -39,12 +40,14 @@ _CONSTANTS = {
     "ehold()": ["e"],
     "random()": ["?"],
     "truehold()": ["true"],
-    "falsehold()": ["false"]
+    "falsehold()": ["false"],
+    "nonehold()": ["none", "null", "void"]
 }
 
 _REPLACE = {
     "(": ["[", "{"],
-    ")": ["]", "}"]
+    ")": ["]", "}"],
+    "+": ["++", "--"]
 }
 
 _ALLOW = set("abcdefghijklmnopqrstuvwxyzπτ(),.?")
@@ -54,10 +57,13 @@ _ALLOW = _ALLOW.union(nums())
 def set_globals() -> None:
     """Set global variables for the module"""
     global _SYMBOLS ; global _NAMES ; global _LOGIC_FUNC
-    _LOGIC_FUNC = data_JSON("/../Resources/logic_func.json")
+    _LOGIC_FUNC = data_JSON("Resources/logic_func.json")
 
     for key, value in _LOGIC_FUNC.items():
         _NAMES[key] = value["aliases"]
+        # Functions for which args should not be resolved outside
+        if not value.get("resolve", True):
+            _NO_RESOLVE.add(key)
         if "symbols" in value:
             # Set the dict key to the 'top-level' symbol
             _SYMBOLS[value["symbols"][0]] = []
@@ -66,12 +72,14 @@ def set_globals() -> None:
             if value["placement"] == "mid": # if symbol goes between args
                 _MID[value["priority"]-1][value["symbols"][0]] = key
             elif value["placement"] == "after": # if symbol goes after arg
-                _AFTER[value["priority"]-1][value["symbols"][0]] = key
+                _AFTER[value["symbols"][0]] = key
             
             if len(value["symbols"]) > 1: # 'low-level' symbols as dict values
                 _SYMBOLS[value["symbols"][0]] = value["symbols"][1:]
 
 set_globals()
+
+_AFTER_STR = "".join(_AFTER.keys())
 
 
 
@@ -196,7 +204,8 @@ def replace_simple(txt: str, source: dict) -> str:
     """Replace elements of value by key"""
     for key, value in source.items():
         for element in value:
-            txt = txt.replace(element, key)
+            while element in txt:
+                txt = txt.replace(element, key)
     return txt
 
 
@@ -215,12 +224,16 @@ def replace_targeted(txt: str, source: dict) -> str:
                 replace = str(key) # We also need implicit multiplication
                 # Otherwise, 2pi --> 23.14159 and not 2*3.14159
                 if section.start > 0 and \
-                    is_num(txt[section.start - 1]):
+                    (is_num(txt[section.start - 1]) or \
+                    txt[section.start - 1] == ")" or \
+                    txt[section.start - 1] in _AFTER_STR):
                         replace = "*" + replace
-                if section.end < len(txt)-1 and \
-                    is_num(txt[section.end + 1]):
+                if section.end < len(txt) - 2 and \
+                    (is_num(txt[section.end + 1]) or \
+                    txt[section.end + 1] == "(" or \
+                    txt[section.end + 1].isalpha()):
                         replace = replace + "*"
-                txt = txt[:section.start] + replace + txt[section.end+1:]
+                txt = txt[:section.start] + replace + txt[section.end + 1:]
                 continue
         if section.type == "par": index += 1
         # We can skip the whole section if it doesn't nest
@@ -257,7 +270,8 @@ def implicit_multiplication(txt: str) -> str:
             # AND is not between function name and '('
             if section.start != 0 and \
                 txt[section.start - 1] != "(" and \
-                txt[section.start - 1] not in symb_comma() and \
+                (txt[section.start - 1] not in symb_comma() or \
+                 txt[section.start - 1] in _AFTER_STR) and \
                 (section.type != "par" or not txt[section.start - 1].isalpha()):
                     # Insert a '*' before the current section
                     txt = txt[:section.start] + "*" + txt[section.start:]
@@ -268,27 +282,19 @@ def implicit_multiplication(txt: str) -> str:
 
 
 def implicit_zero(txt: str) -> str:
-    """Place zero before vacant '-' or '.'"""
-    if txt[0] == '-': txt = '0' + txt
-    index = 1 ; section = None # Init section for index jump
+    """Place zero before vacant '.'"""
+    index = 0
     while index < len(txt):
-        if txt[index] == '-': # negative part
-            # If '-' is after symbol OR comma OR '('
-            # AND it's not the end of txt
-            if (txt[index-1] in symb_comma() or \
-                txt[index-1] == "(") \
-                and index < len(txt)-1:
-                    # Analyse the section to get its dimensions
-                    section = analyse(txt, index+1)
-                    # Must respect parenthesis order, so cannot convert to func yet
-                    txt = txt[:index] + '(0-' + section.content + ')' + txt[section.end+1:]
-        # IF '.' AND not preceded by a num
-        if txt[index] == '.' and txt[index-1] not in nums():
-            # .123 --> 0.123
-            txt = txt[:index] + '0.' + txt[index+1:]
-        if not section or section.type == "par": index += 1
-        # We can skip the whole section if it doesn't nest
-        else: index += section.end - section.start + 1
+        if txt[index] == '.':
+            if index == len(txt) - 1 or \
+                    txt[index+1] not in nums() :
+                # 123. --> 123.0
+                txt = txt[:index] + '.0' + txt[index+1:]
+            if index == 0 or \
+                    txt[index-1] not in nums():
+                # .123 --> 0.123
+                txt = txt[:index] + '0.' + txt[index+1:]
+        index += 1
     return txt
 
 
@@ -301,10 +307,9 @@ def implicit_zero(txt: str) -> str:
 
 def place_functions(txt: str) -> str:
     """Replace symbols by their function."""
-    for priority in range(6): # Order by priority above all
-        # We consider x^7! to be pow(x,factorial(7))
-        for key, value in _AFTER[priority].items():
+    for key, value in _AFTER.items():
             txt = place_after(txt, key, value)
+    for priority in range(6): # Order by priority above all
         for key, value in _MID[priority].items():
             txt = place_mid(txt, key, value)
     return txt
@@ -336,9 +341,11 @@ def place_mid(txt: str, symbol: str, func: str) -> str:
         # OR not preceded by a valid argument
         # OR not followed by a valid argument
         if index == 0 or index >= len(txt) - 1 or \
-            txt[index-1] not in nums() + ")!²~" or not \
+            txt[index-1] not in nums() + ")" + _AFTER_STR or not \
             (txt[index+1] in nums() + "(+-" or txt[index+1].isalpha()):
-                raise SyntaxError(f"Symbol '{symbol}' was misplaced")
+                if symbol in "+-": txt = txt[:index] + "0" + txt[index:]
+                else: raise SyntaxError(f"Symbol '{symbol}' was misplaced")
+                index += 1
         # Need to ensure we get the whole functions if any are
         section1 = check_for_func(txt, analyse(txt, index - 1))
         section2 = check_for_func(txt, analyse(txt, index + 1))
@@ -363,11 +370,15 @@ class Holder:
     @staticmethod
     def and_(*x): return all(x)
     @staticmethod
+    def avg_(*x): return sum(x)/len(x)
+    @staticmethod
     def div_(x,y): return x/y
     @staticmethod
     def ehold_(): return math.e
     @staticmethod
     def eq_(x,y): return x == y
+    @staticmethod
+    def extract_(*x): return x if len(x) > 1 else x[0]
     @staticmethod
     def falsehold_(): return False
     @staticmethod
@@ -375,9 +386,37 @@ class Holder:
     @staticmethod
     def grteq_(x,y): return x >= y
     @staticmethod
+    def ifelse_(x,y,z=None): return y if x else z
+    @staticmethod
     def int_(x): return int(x)
     @staticmethod
     def intdiv_(x,y): return x // y
+    @staticmethod
+    def iter_(s,x,y):
+        return [resolve(x, s) for i in range(resolve(y, s))]
+    @staticmethod
+    def iteravg_(s,x,y=10000):
+        return Holder.avg_(*[resolve(x) for i in range(resolve(y, s))])
+    @staticmethod
+    def itermax_(s,x,y=1000):
+        return Holder.max_(*[resolve(x) for i in range(resolve(y, s))])
+    @staticmethod
+    def itermin_(s,x,y=1000):
+        return Holder.min_(*[resolve(x) for i in range(resolve(y, s))])
+    @staticmethod
+    def keephigh_(x,*y): 
+        if isiterable(y) and len(y) == 1: y = y[0]
+        return sorted(y,reverse=True)[:x]
+    @staticmethod
+    def keeplow_(x,*y):
+        if isiterable(y) and len(y) == 1: y = y[0]
+        return sorted(y)[:x]
+    @staticmethod
+    def logtwo_(x): return math.log2(x)
+    @staticmethod
+    def logten_(x): return math.log10(x)
+    @staticmethod
+    def loge_(x): return math.log(x)
     @staticmethod
     def lwr_(x,y): return x < y
     @staticmethod
@@ -392,6 +431,8 @@ class Holder:
     def mul_(*x): return math.prod(x)
     @staticmethod
     def neq_(x,y): return x != y
+    @staticmethod
+    def nonehold_(): return None
     @staticmethod
     def not_(x): return not x
     @staticmethod
@@ -411,6 +452,12 @@ class Holder:
     @staticmethod
     def tauhold_(): return math.tau
     @staticmethod
+    def try_(s,*x):
+        for i in x:
+            try: return resolve(i, s)
+            except: pass
+        return None
+    @staticmethod
     def truehold_(): return True
 
 
@@ -421,15 +468,19 @@ class Holder:
 
 
 
-def resolve(txt: str) -> any:
+def resolve(txt: str, stack: list = [], source: dict = None) -> any:
     """
     Resolve the nested expression recursively.
     Basically a whole ride to avoid 'eval()'
     """
+    if not txt: return None
+    # Source must be {'name': func}
+    if source is None: source = {}
+    if not isinstance(txt, str):
+        return txt
     # Cull unecessary brackets
     while txt.startswith('('):
         txt = txt[1:-1]
-    if not txt: return None
     # If it is a number, just get the value
     if is_num(txt[0]):
         if '.' in txt:
@@ -438,15 +489,62 @@ def resolve(txt: str) -> any:
     
     # If it is a function, get its name
     section = analyse(txt, 0)
-    # Throw error if it's not recognized
-    if section.content not in _LOGIC_FUNC:
-        raise NameError(f"Function '{section.content}' is not recognized.")
+    name = section.content
+    # And get the actual object from it
+    if name in _LOGIC_FUNC:
+        origin = _LOGIC_FUNC[name]["origin"]
+        if origin == "math":
+            func = getattr(math, name)
+        elif origin == "random":
+            func = getattr(random, name)
+        else: func = getattr(Holder, name + "_")
+    elif name in source: func = source[name]
+    else: raise NameError(f"Function '{name}' is not recognized.")
     
-    # Get the arguments
-    parenthesis_count = 0
+    args = get_args(txt[section.end + 2:-1])
+    # Iteration logic already uses resolve
+    if name not in _NO_RESOLVE:
+        # Resolve arguments
+        arguments = [resolve(arg, stack) for arg in args]
+        # Cull None returns
+        arguments = [arg for arg in arguments if arg is not None]
+        # Remove iterables
+        if len(arguments) == 1:
+            if isiterable(arguments[0]):
+                arguments = arguments[0]
+    else: arguments = [stack] + args
+
+    # Call the function with the arguments
+    try: result = func(*arguments)
+    except Exception as e:
+        name.removesuffix("hold_") ; name.removesuffix("_")
+        raise e.__class__(f"An error occured when running '{name}': {e}")
+    
+    # Result (iterable) to non-iterable
+    while isiterable(result) and len(result) == 1:
+            result = result[0]
+    # To integer if possible, so functions that depend on it work
+    if isinstance(result, float) and \
+        result.is_integer(): result = int(result)
+    # Add it to the call stack (if it's not an iterable)
+    if name == "extract":
+        if not isiterable(result):
+            stack.append(result)
+    return result
+
+
+def get_args(txt: str, comments: str = None) -> list:
+    """Get the arguments of a function call from a string."""
+    parenthesis_count = 0 ; in_comment = False
     args = [""] ; arg_num = 0
     # From after the first '(' to before the last ')'
-    for index in range(section.end + 2, len(txt) - 1):
+    for index in range(len(txt)):
+        if comments and txt[index] in comments:
+            in_comment = not in_comment
+        # Skip if section is commented out
+        if in_comment:
+            args[arg_num] += txt[index]
+            continue
         if txt[index] == '(': parenthesis_count += 1
         # Make sure to not include ',' in the arguments
         if parenthesis_count != 0 or txt[index] != ',':
@@ -456,32 +554,8 @@ def resolve(txt: str) -> any:
         if parenthesis_count == 0 and txt[index] == ',':
             arg_num += 1
             args.append('')
-    
-    # Resolve function name
-    name = section.content
-    origin = _LOGIC_FUNC[name]["origin"]
-    if origin == "math":
-        func = getattr(math, name)
-    elif origin == "random":
-        func = getattr(random, name)
-    else: func = getattr(Holder, name + "_")
+    return args
 
-    # Resolve arguments
-    arguments = [resolve(arg) for arg in args]
-    # Cull None returns
-    arguments = [arg for arg in arguments if arg is not None]
-
-    # Call the function with the arguments
-    try: result = func(*arguments)
-    except Exception as e:
-        name.removesuffix("hold_") ; name.removesuffix("_")
-        raise e.__class__(f"An error occured when running '{name}'")
-    
-    # Convert it to integer if possible, so function that depend on it work
-    if isinstance(result, float) and \
-        result.is_integer(): result = int(result)
-    return result
-    
 
 
 ##################################################
@@ -489,7 +563,8 @@ def resolve(txt: str) -> any:
 ##################################################
 
 
-def main(txt: str) -> any:
+
+def main(txt: str, stack: list = None) -> any:
     """Resolve and output the given expression"""
     cleanup_ = cleanup(txt)
     symbols_ = replace_simple(cleanup_, _SYMBOLS)
@@ -498,10 +573,14 @@ def main(txt: str) -> any:
     multiply_ = implicit_multiplication(constants_)
     implicit_ = implicit_zero(multiply_)
     functions_ = place_functions(implicit_)
-    result = resolve(functions_)
-    return result
+    if stack is None: stack = []
+    result = resolve(functions_, stack)
+    return result, stack
 
 
 
 if __name__ == "__main__":
-    pass
+    txt = input()
+    result, stack = main(txt)
+    print(result)
+    print(stack)

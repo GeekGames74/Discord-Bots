@@ -23,7 +23,7 @@ from pkg_resources import require, VersionConflict, DistributionNotFound
 from datetime import datetime
 
 from Modules.data import data_JSON, data_TXT
-from Modules.basic import makeiterable, correspond, least_one
+from Modules.basic import makeiterable, correspond, least_one, path_from_root
 
 
 
@@ -41,7 +41,7 @@ async def build_bot(path: str):
     from discord.ext.commands.bot import Bot
     from discord import Intents, Activity
     if not path.endswith(".json"): path += ".json"
-    data = data_JSON("/Resources/Configs/" + path)
+    data = data_JSON("Resources/Configs/" + path)
     base_intent = getattr(Intents(), data["base_intent"])
     intents = toggle_intents(base_intent(), data["target_intents"])
     bot = Bot(data["prefix"], case_insensitive = True,
@@ -50,7 +50,7 @@ async def build_bot(path: str):
     for ext in data["base_extensions"]: # No extension is loaded by default
         name = "Extensions." + ext.removesuffix(".py").capitalize()
         await bot.load_extension(name) # load is asynchronous
-    location = "/Secret/" + data["token_location"]
+    location = "Secret/" + data["token_location"]
     TOKEN = data_TXT(location, "token")["token"]
     await bot.start(TOKEN, reconnect = True)
     return bot
@@ -86,7 +86,7 @@ def names_to_files(*names: str) -> set:
     If no names are given, ask for them.
     """
     all_files = {f.lower().removesuffix(".json")
-            for f in listdir("./Resources/Configs/")
+            for f in listdir(path_from_root("Resources/Configs/"))
             if f.endswith(".json")} ; to_launch = set()
     if not names: # Ask for names
         print("Available config files:\n" + " ".join(all_files))

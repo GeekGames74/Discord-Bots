@@ -12,8 +12,8 @@ Below imports should not include any built-in's, to avoid cyclic imports.
 
 
 
-from __main__ import __file__
 from os import path as os_path
+from os import sep as os_sep
 
 
 
@@ -27,6 +27,9 @@ from os import path as os_path
 _SPACING = ["", "-", "_"]
 # Punctuation for the remove_punct function
 _PUNCT = ['.', ',', '?', '!', ';', ':', '"', "'", " "]
+
+_ROOT = os_path.abspath(os_path.join(os_path.dirname(__file__), '..'))
+
 
 
 ##################################################
@@ -98,9 +101,15 @@ def least_one(iter1, iter2) -> bool:
     return any(i in iter1 for i in iter2)
 
 
-def project_root() -> str:
-    """Return absolute path to the project root directory."""
-    return os_path.dirname(os_path.realpath(__file__))
+def path_from_root(txt: str = "") -> str:
+    """
+    Return absolute path to the project root directory.
+    Can also transform a local path (relative to project root)
+    to absolute path (no matter the os (use '/' to sep))
+    """
+    txt.removeprefix("/")
+    if txt: return os_path.join(_ROOT, txt.replace('/', os_sep))
+    return _ROOT
 
 
 def correspond(needle: str, haystack: set()) -> str:
@@ -120,6 +129,7 @@ def correspond(needle: str, haystack: set()) -> str:
             return h
     # Nothing
     return None
+
 
 
 ##################################################
