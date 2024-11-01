@@ -182,10 +182,10 @@ if __name__ == "__main__":
     to_launch = names_to_files(*trueargs)
 
     if pltf_sys() == "Windows":
-        require(data_TXT("./requirements.txt"))
+        require(data_TXT("requirements.txt"))
         main(to_launch)
     elif pltf_sys() == "Linux":
-        try: require(data_TXT("/requirements.txt"))
+        try: require(data_TXT("requirements.txt"))
         except (VersionConflict, DistributionNotFound) as e:
             if not noscreen: start_screen("./venv", to_launch)
             else: raise e
