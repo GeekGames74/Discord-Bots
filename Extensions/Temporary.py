@@ -68,8 +68,7 @@ class Temp(CMDS.Cog):
 
 
 
-    @CMDS.command(name = "calculator", aliases = ["calculate", "calc", "evaluate", "eval", "math",
-                                            "dice", "roll", "d", "r", "diceroll", "rolldice"])
+    @CMDS.command(name = "roll", aliases = ["dice", "d", "r", "diceroll", "rolldice"])
     async def calculate(self, ctx: CTX, *, msg: str) -> None:
         """
         Allows mathematical evaluation of a simple expression (it's a calculator !)

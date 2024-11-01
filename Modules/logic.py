@@ -50,7 +50,7 @@ _REPLACE = {
     "+": ["++", "--"]
 }
 
-_ALLOW = set("abcdefghijklmnopqrstuvwxyzπτ(),.?")
+_ALLOW = set("abcdefghijklmnopqrstuvwxyzπτ()[]{},.?")
 _ALLOW = _ALLOW.union(nums())
 
 
@@ -177,12 +177,10 @@ def check_for_func(txt: str, section: Analysis) -> Analysis:
 
 def cleanup(txt: str) -> str:
     """Remove whitespace and fix parentheses."""
-    txt = replace_simple(txt, _REPLACE)
     txt = txt.lower() # <-- to be safe, shouldn't be needed
-    # Because before this point, user input should already be treated
-    # with potential features like custom functions and comments
-    # only math (or syntax errors) should pass the next line
     txt = "".join([i for i in txt if i in _ALLOW])
+    txt = replace_simple(txt, _REPLACE)
+    # Before this point, user input should already be treated
     # Now, we ensure all parentheses are accounted for
     # It is mathematically impossible to not have corresponding pairs
     # If user input was not as intended this will fix it however it can
