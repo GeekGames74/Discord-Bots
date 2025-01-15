@@ -38,6 +38,11 @@ _ROOT = os_path.abspath(os_path.join(os_path.dirname(__file__), '..'))
 
 
 
+def least_one(iter1, iter2) -> bool:
+    """Check if there is at least one element that is both in iter1 and iter2."""
+    return any(i in iter1 for i in iter2)
+
+
 def isiterable(var: any, allowstring: bool = False):
     """Check if a variable is iterable or not (targeted at for-loops)"""
     if allowstring and isinstance(var, str): return True
@@ -54,6 +59,20 @@ def makeiterable(var: any, default_to: str = "list") -> any:
     # Resolve the type using the dictionnary
     if isinstance(default_to, str): default_to = allowed[default_to]
     return default_to([var]) if var is not None else default_to()
+
+
+def flatten(iter: list, new_iter: list = None) -> list:
+    """Flatten a list of lists (of lists...)"""
+    if new_iter is None:
+        new_iter = set() if isinstance(iter, set) else []
+    if isiterable(iter):
+        for i in iter:
+            flatten(i, new_iter)
+    elif isinstance(new_iter, set):
+        new_iter.add(iter)
+    else: new_iter.append(iter)
+    return new_iter
+
 
 
 def mixmatch(part1: list, part2: list, spacing: list = _SPACING,
@@ -79,6 +98,7 @@ def mixmatch(part1: list, part2: list, spacing: list = _SPACING,
     return [n for n in names if n and n not in remove]
 
 
+
 def remove_punct(txt: str) -> str:
     """Remove punctuation from a string"""
     for p in _PUNCT:
@@ -88,17 +108,12 @@ def remove_punct(txt: str) -> str:
 
 def plural(obj: any, _n = "s", _0 = "s", _1 = "", _p = "s") -> any:
     """Return a value based on the len of obj."""
-    n = n if isinstance(obj, int) else len(obj)
+    n = obj if isinstance(obj, int) else len(obj)
     match n:
         case 0: return _0
         case 1: return _1
         case _: return _n if n<0 else _p
     
-
-
-def least_one(iter1, iter2) -> bool:
-    """Check if there is at least one element that is both in iter1 and iter2."""
-    return any(i in iter1 for i in iter2)
 
 
 def path_from_root(txt: str = "") -> str:
@@ -110,6 +125,7 @@ def path_from_root(txt: str = "") -> str:
     txt.removeprefix("/")
     if txt: return os_path.join(_ROOT, txt.replace('/', os_sep))
     return _ROOT
+
 
 
 def correspond(needle: str, haystack: set()) -> str:

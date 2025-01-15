@@ -177,7 +177,7 @@
             "fact",
             "fct"
         ],
-        "origin": "math",
+        "origin": "",
         "placement": "after",
         "priority": 1,
         "symbols": [
@@ -186,6 +186,10 @@
     },
     "falsehold": {
         "aliases": [],
+        "origin": ""
+    },
+    "flatten": {
+        "aliases": ["flattenlist"],
         "origin": ""
     },
     "floor": {
@@ -313,6 +317,18 @@
         ],
         "origin": ""
     },
+    "keephighlow": {
+        "aliases": [
+            "keephighlowest",
+            "keephighestlow",
+            "keephighestlowest",
+            "keeplowhigh",
+            "keeplowesthigh",
+            "keeplowhighest",
+            "keeplowesthighest"
+        ],
+        "origin": ""
+    },
     "keeplow": {
         "aliases": [
             "keeplowest"
@@ -325,6 +341,16 @@
             "ppcm"
         ],
         "origin": "math"
+    },
+    "list": {
+        "aliases": [
+            "tolist",
+            "tuple",
+            "toptuple",
+            "iterable",
+            "toiterable"
+        ],
+        "origin": ""
     },
     "log": {
         "aliases": [
@@ -477,7 +503,7 @@
             "power",
             "raise"
         ],
-        "origin": "math",
+        "origin": "",
         "placement": "mid",
         "priority": 1,
         "symbols": [
@@ -508,6 +534,10 @@
             "randomrange"
         ],
         "origin": "random"
+    },
+    "range": {
+        "aliases": [],
+        "origin": ""
     },
     "root": {
         "aliases": [],

@@ -11,7 +11,7 @@ Logic module for calculation, randomness, and boolean operations.
 
 
 from Modules.data import data_JSON
-from Modules.basic import isiterable
+from Modules.basic import isiterable, flatten
 import math ; import random
 
 
@@ -80,6 +80,8 @@ def set_globals() -> None:
 set_globals()
 
 _AFTER_STR = "".join(_AFTER.keys())
+_TYPES = {"comma", "other", "symbol", "num", "alpha", "par", "func"}
+_MAX_STACK = 1000
 
 
 
@@ -93,7 +95,7 @@ class Analysis:
     def __init__(self, start: int, end: int, content: str, type: str) -> None:
         """Initialise the Analysis class"""
         if start > end: raise ValueError("Start index must be less than end index")
-        if type.lower() not in ["comma", "other", "symbol", "num", "alpha", "par", "func"]:
+        if type.lower() not in _TYPES:
             raise ValueError(f"Invalid type : '{type.lower()}'")
         self.start = start ; self.end = end
         self.content = content
@@ -324,7 +326,7 @@ def place_after(txt: str, symbol: str, func: str) -> str:
             # Next batch of string to process
             section = check_for_func(txt, analyse(txt, cursor - 1))
             content = section.content + content # Concatenate content
-            if section.type in ["par", "func", "num"]: break
+            if section.type in {"par", "func", "num"}: break
             cursor = section.start # Loop again
         # (10/3)~! --> factorial(round(10/3))
         txt = txt[:section.start] + func + "(" + content + ")" + txt[index+1:]
@@ -378,7 +380,14 @@ class Holder:
     @staticmethod
     def extract_(*x): return x if len(x) > 1 else x[0]
     @staticmethod
+    def factorial_(x):
+        if x > 1500: raise ValueError(
+            "factorial() argument should not exceed 1500")
+        return math.factorial(x)
+    @staticmethod
     def falsehold_(): return False
+    @staticmethod
+    def flatten_(*x): return flatten(x)
     @staticmethod
     def grt_(x,y): return x > y
     @staticmethod
@@ -391,24 +400,28 @@ class Holder:
     def intdiv_(x,y): return x // y
     @staticmethod
     def iter_(s,x,y):
-        return [resolve(x, s) for i in range(resolve(y, s))]
+        return [resolve(x, *s) for i in range(resolve(y, *s))]
     @staticmethod
     def iteravg_(s,x,y=10000):
-        return Holder.avg_(*[resolve(x) for i in range(resolve(y, s))])
+        return Holder.avg_(*[resolve(x, *s) for i in range(resolve(y, *s))])
     @staticmethod
     def itermax_(s,x,y=1000):
-        return Holder.max_(*[resolve(x) for i in range(resolve(y, s))])
+        return Holder.max_(*[resolve(x, *s) for i in range(resolve(y, *s))])
     @staticmethod
     def itermin_(s,x,y=1000):
-        return Holder.min_(*[resolve(x) for i in range(resolve(y, s))])
+        return Holder.min_(*[resolve(x, *s) for i in range(resolve(y, *s))])
     @staticmethod
     def keephigh_(x,*y): 
-        if isiterable(y) and len(y) == 1: y = y[0]
-        return sorted(y,reverse=True)[:x]
+        return sorted(flatten(y),reverse=True)[:x]
+    @staticmethod
+    def keephighlow_(x, y, *z):
+        z = flatten(z)
+        return sorted(z)[:y] + list(reversed(sorted(z)[y:]))[:x]
     @staticmethod
     def keeplow_(x,*y):
-        if isiterable(y) and len(y) == 1: y = y[0]
-        return sorted(y)[:x]
+        return sorted(flatten(y))[:x]
+    @staticmethod
+    def list(*x): return x
     @staticmethod
     def logtwo_(x): return math.log2(x)
     @staticmethod
@@ -438,6 +451,10 @@ class Holder:
     @staticmethod
     def pihold_(): return math.pi
     @staticmethod
+    def pow_(x,y): return x**y
+    @staticmethod
+    def range_(*x): return list(range(*x))
+    @staticmethod
     def round_(x,y=1): return round(x,y) if y>1 else int(round(x,y))
     @staticmethod
     def root_(x,y=1): return pow(x,1/y)
@@ -452,7 +469,7 @@ class Holder:
     @staticmethod
     def try_(s,*x):
         for i in x:
-            try: return resolve(i, s)
+            try: return resolve(i, *s)
             except: pass
         return None
     @staticmethod
@@ -501,23 +518,25 @@ def resolve(txt: str, stack: list = [], source: dict = None) -> any:
     
     args = get_args(txt[section.end + 2:-1])
     # Iteration logic already uses resolve
-    if name not in _NO_RESOLVE:
+    if name not in _NO_RESOLVE and \
+            name not in source:
         # Resolve arguments
-        arguments = [resolve(arg, stack) for arg in args]
+        arguments = [resolve(arg, stack, source) for arg in args]
         # Cull None returns
-        arguments = [arg for arg in arguments if arg is not None]
+        arguments = [arg for arg in arguments if arg not in [None, ""]]
         # Remove iterables
         if len(arguments) == 1:
             if isiterable(arguments[0]):
                 arguments = arguments[0]
-    else: arguments = [stack] + args
+    else:
+        args = [arg for arg in args if arg not in [None, ""]]
+        arguments = [(stack, source)] + args
 
     # Call the function with the arguments
     try: result = func(*arguments)
     except Exception as e:
         name.removesuffix("hold_") ; name.removesuffix("_")
         raise e.__class__(f"An error occured when running '{name}': {e}")
-    
     # Result (iterable) to non-iterable
     while isiterable(result) and len(result) == 1:
             result = result[0]
@@ -562,7 +581,7 @@ def get_args(txt: str, comments: str = None) -> list:
 
 
 
-def main(txt: str, stack: list = None) -> any:
+def main(txt: str, stack: list = None, source: dict = None) -> any:
     """Resolve and output the given expression"""
     cleanup_ = cleanup(txt)
     symbols_ = replace_simple(cleanup_, _SYMBOLS)
@@ -572,7 +591,7 @@ def main(txt: str, stack: list = None) -> any:
     implicit_ = implicit_zero(multiply_)
     functions_ = place_functions(implicit_)
     if stack is None: stack = []
-    result = resolve(functions_, stack)
+    result = resolve(functions_, stack, source)
     return result, stack
 
 

@@ -79,7 +79,6 @@ def toggle_intents(obj, intents):
 def bothelp(): print("TODO: help")
 
 
-
 def names_to_files(*names: str) -> set:
     """
     Get the config files from the given names.
