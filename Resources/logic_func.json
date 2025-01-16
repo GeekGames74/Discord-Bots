@@ -31,7 +31,9 @@
         "origin": "math"
     },
     "and": {
-        "aliases": [],
+        "aliases": [
+            "all"
+        ],
         "origin": "",
         "placement": "mid",
         "priority": 5,
@@ -75,6 +77,12 @@
     "avg": {
         "aliases": [
             "average"
+        ],
+        "origin": ""
+    },
+    "bool": {
+        "aliases": [
+            "boolean"
         ],
         "origin": ""
     },
@@ -279,6 +287,8 @@
     },
     "iter": {
         "aliases": [
+            "rpt",
+            "repeat",
             "iterate"
         ],
         "origin": "",
@@ -341,6 +351,12 @@
             "ppcm"
         ],
         "origin": "math"
+    },
+    "len": {
+        "aliases": [
+            "length"
+        ],
+        "origin": ""
     },
     "list": {
         "aliases": [
@@ -454,6 +470,10 @@
             "*"
         ]
     },
+    "nand": {
+        "aliases": [],
+        "origin": ""
+    },
     "neq": {
         "aliases": [
             "noteq",
@@ -472,12 +492,18 @@
         "aliases": [],
         "origin": ""
     },
+    "nor": {
+        "aliases": [],
+        "origin": ""
+    },
     "not": {
         "aliases": [],
         "origin": ""
     },
     "or": {
-        "aliases": [],
+        "aliases": [
+            "any"
+        ],
         "origin": "",
         "placement": "mid",
         "priority": 5,
@@ -650,5 +676,13 @@
     "uniform": {
         "aliases": [],
         "origin": "random"
+    },
+    "xnor": {
+        "aliases": [],
+        "origin": ""
+    },
+    "xor": {
+        "aliases": [],
+        "origin": ""
     }
 }

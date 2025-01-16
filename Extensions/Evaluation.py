@@ -23,7 +23,7 @@ from Modules.reactech import Reactech
 from Modules.logic import main as main_math
 from Modules.logic import get_args, is_num
 from Modules.logic import _AFTER_STR, resolve
-from Modules.logic import _REPLACE, replace_simple
+from Modules.logic import _REPLACE, replace_simple, ensure_parenthesis
 from Modules.logic import analyse, check_for_func
 from Modules.basic import isiterable, mixmatch, flatten, plural
 
@@ -65,10 +65,10 @@ def anyroll(s: tuple, expr: str, x: str = None,
         if isinstance(result, tuple):
             rolled, mx = int(result[0]), result[1]
         else: rolled = int(result[0])
-        if rolled in r:
+        if r and isiterable(r) and rolled in r:
             return anyroll(s, expr, x, None, rr)
     if x and ((isinstance(x, bool) and mx and rolled == mx)
-            or (isinstance(x, list) and rolled in x)):
+            or (isiterable(x) and rolled in x)):
         rolled += anyroll(s, expr, x, r, rr)
     return rolled
 
@@ -101,7 +101,7 @@ def nuclear(s: tuple, x: str, first: bool = True) -> (int,int):
     sides = int(resolve(x, *s))
     if sides not in _DICE_LIST: raise ValueError(
         "Nuclear dice must have sides in " +
-        f"[{', '.join(_DICE_LIST)}]")
+        f"[{', '.join([str(i) for i in _DICE_LIST])}]")
     rolled = roll(s, sides)[0]
     index = _DICE_LIST.index(sides)
     if rolled == sides and index != len(_DICE_LIST)-1:
@@ -128,7 +128,7 @@ _JESUS = 536998412223250462
 
 _ALLOW = {_JESUS}.union({
     427031555383492609, # Geek
-    774649444842209300, # Ghost
+    #774649444842209300, # Ghost
 })
 
 def allow_scuff(ctx: CTX) -> bool:
@@ -200,8 +200,7 @@ async def evaluate_args(args: list, dice: bool = False, is_scuff: bool = False) 
         expr, comm = get_comm(arg)
         if not expr: continue
         comms.append(comm)
-        try: # If no result, make it 'None'
-            result, had_dice = await wait_for(to_thread(solver,
+        try: result, had_dice = await wait_for(to_thread(solver,
                 expr, stack, dice, is_scuff), _ARG_TIMEOUT)
         except TimeoutError as e:
             results.append("TimeoutError")
@@ -211,6 +210,8 @@ async def evaluate_args(args: list, dice: bool = False, is_scuff: bool = False) 
             results.append(e.__class__.__name__)
             errors.append(f"'{e.__class__.__name__}': {e}")
         else: results.append(result)
+    try: had_dice
+    except NameError: had_dice = False
     return results, comms, stack, errors, had_dice
 
 
@@ -219,11 +220,10 @@ def solver(expr: str, stack: list, dice: bool = False, is_scuff: bool = False):
     if dice and is_scuff: source["scuff"] = scuff
     if dice: expr, had_dice = translate_dice(expr, is_scuff)
     result = main_math(expr, stack, source)[0]
-    if not result: result = None
     return result, had_dice
 
 
-def ensure_size(result: any, size: int = 50) -> str:
+def ensure_size(result: any, size: int = 100) -> str:
     """Format the given argument into a proper output."""
     if isiterable(result) and len(result) == 1:
         return ensure_size(result[0])
@@ -241,7 +241,7 @@ def format_lines(results: list, comms: list, stack: list) -> list:
     if not (len(results) == 1 and \
         isinstance(results[0], (int, float))):
             results = [ensure_size(i) for i in results]
-    else: results = [ensure_size(results[0], 500)]
+    else: results = [ensure_size(results[0])]
     stack = ensure_size(stack, 150) if stack else ""
     output = [results[i]+comms[i] for i in range(len(results))]
     lines = [output[0]] # Create output lines to send
@@ -262,6 +262,7 @@ async def main(self: CMDS.Cog, ctx: CTX, txt: str, auto: bool = False) -> None:
     if msg.reference and (not auto or \
             msg.reference.resolved.author.bot):
         txt = ans(msg, txt)
+    txt = ensure_parenthesis(txt)
     args = format_msg(txt)
     dice = bool(self.bot.get_cog("Roll"))
     scuff = allow_scuff(ctx)
@@ -272,8 +273,8 @@ async def main(self: CMDS.Cog, ctx: CTX, txt: str, auto: bool = False) -> None:
             "No expression to evaluate (was it commented out?)")
         return
     # Auto filter 
-    if auto and (not [i for i in flatten(results) if i] or \
-        errors or txt.startswith(str(results[0]))): return
+    if auto and errors or txt.removeprefix("+") \
+        .startswith(str(results[0])): return
     # Send the output lines and prepare the error log
     lines = format_lines(results, comms, stack)
     emoji = "🎲" if had_dice else "🧮"

@@ -182,10 +182,12 @@ def cleanup(txt: str) -> str:
     txt = txt.lower() # <-- to be safe, shouldn't be needed
     txt = "".join([i for i in txt if i in _ALLOW])
     txt = replace_simple(txt, _REPLACE)
-    # Before this point, user input should already be treated
-    # Now, we ensure all parentheses are accounted for
-    # It is mathematically impossible to not have corresponding pairs
-    # If user input was not as intended this will fix it however it can
+    txt = ensure_parenthesis(txt)
+    return txt
+
+
+def ensure_parenthesis(txt: str):
+    """Fill in parenthiesis on eiter side to ensure valid entry"""
     current_count = 0 ; leading = 0
     for i in txt:
         # positive for more nesting
@@ -195,7 +197,6 @@ def cleanup(txt: str) -> str:
         if current_count == -1:
             leading += 1
             current_count += 1
-    # )())(()( --> (()())(()())
     txt = "("*leading + txt + ")"*current_count
     return txt
 
@@ -209,7 +210,7 @@ def replace_simple(txt: str, source: dict) -> str:
     return txt
 
 
-def replace_targeted(txt: str, source: dict) -> str:
+def replace_targeted(txt: str, source: dict, func: bool) -> str:
     """
     Replace elements of value by key
     Unlike replace_simple, this works by checking along the txt
@@ -230,14 +231,13 @@ def replace_targeted(txt: str, source: dict) -> str:
                         replace = "*" + replace
                 if section.end < len(txt) - 2 and \
                     (is_num(txt[section.end + 1]) or \
-                    txt[section.end + 1] == "(" or \
+                    (txt[section.end + 1] == "(" and func) or \
                     txt[section.end + 1].isalpha()):
                         replace = replace + "*"
                 txt = txt[:section.start] + replace + txt[section.end + 1:]
-                continue
         if section.type == "par": index += 1
         # We can skip the whole section if it doesn't nest
-        else: index += section.end - section.start + 1
+        else: index = section.end + 1
     return txt
         
 
@@ -372,6 +372,8 @@ class Holder:
     @staticmethod
     def avg_(*x): return sum(x)/len(x)
     @staticmethod
+    def bool_(x): return bool(x)
+    @staticmethod
     def div_(x,y): return x/y
     @staticmethod
     def ehold_(): return math.e
@@ -387,7 +389,7 @@ class Holder:
     @staticmethod
     def falsehold_(): return False
     @staticmethod
-    def flatten_(*x): return flatten(x)
+    def flatten_(*x): return flatten([x])
     @staticmethod
     def grt_(x,y): return x > y
     @staticmethod
@@ -421,7 +423,9 @@ class Holder:
     def keeplow_(x,*y):
         return sorted(flatten(y))[:x]
     @staticmethod
-    def list(*x): return x
+    def len_(*x): return len(x)
+    @staticmethod
+    def list_(*x): return x
     @staticmethod
     def logtwo_(x): return math.log2(x)
     @staticmethod
@@ -441,9 +445,13 @@ class Holder:
     @staticmethod
     def mul_(*x): return math.prod(x)
     @staticmethod
+    def nand(*x): return not Holder.and_(*x)
+    @staticmethod
     def neq_(x,y): return x != y
     @staticmethod
     def nonehold_(): return None
+    @staticmethod
+    def nor_(*x): return not Holder.or_(*x)
     @staticmethod
     def not_(x): return not x
     @staticmethod
@@ -453,7 +461,13 @@ class Holder:
     @staticmethod
     def pow_(x,y): return x**y
     @staticmethod
-    def range_(*x): return list(range(*x))
+    def range_(x, y=None):
+        if y is None:
+            if x<0: return list(range(x,0))
+            else: return list(range(1,x+1))
+        else:
+            if x>y: x,y = y,x
+            return list(range(x,y+1))
     @staticmethod
     def round_(x,y=1): return round(x,y) if y>1 else int(round(x,y))
     @staticmethod
@@ -474,6 +488,10 @@ class Holder:
         return None
     @staticmethod
     def truehold_(): return True
+    @staticmethod
+    def xnor_(*x): return not Holder.xor_(*x)
+    @staticmethod
+    def xor_(*x): return any(x) != all(x)
 
 
 
@@ -497,26 +515,29 @@ def resolve(txt: str, stack: list = [], source: dict = None) -> any:
     while txt.startswith('('):
         txt = txt[1:-1]
     # If it is a number, just get the value
-    if is_num(txt[0]):
+    if is_num(txt):
         if '.' in txt:
             return float(txt)
         return int(txt)
     
     # If it is a function, get its name
     section = analyse(txt, 0)
-    name = section.content
-    # And get the actual object from it
-    if name in _LOGIC_FUNC:
-        origin = _LOGIC_FUNC[name]["origin"]
-        if origin == "math":
-            func = getattr(math, name)
-        elif origin == "random":
-            func = getattr(random, name)
-        else: func = getattr(Holder, name + "_")
-    elif name in source: func = source[name]
-    else: raise NameError(f"Function '{name}' is not recognized.")
-    
-    args = get_args(txt[section.end + 2:-1])
+    if section.type == "alpha": # And get the actual object from it
+        args = get_args(txt[section.end+2 :-1])
+        name = section.content
+        if name in _LOGIC_FUNC:
+            origin = _LOGIC_FUNC[name]["origin"]
+            if origin == "math":
+                func = getattr(math, name)
+            elif origin == "random":
+                func = getattr(random, name)
+            else: func = getattr(Holder, name + "_")
+        elif name in source: func = source[name]
+        else: raise NameError(f"Function '{name}' is not recognized.")
+    else: # Arguments
+        args = get_args(txt)
+        return [resolve(arg, stack, source) for arg in args]
+
     # Iteration logic already uses resolve
     if name not in _NO_RESOLVE and \
             name not in source:
@@ -537,9 +558,6 @@ def resolve(txt: str, stack: list = [], source: dict = None) -> any:
     except Exception as e:
         name.removesuffix("hold_") ; name.removesuffix("_")
         raise e.__class__(f"An error occured when running '{name}': {e}")
-    # Result (iterable) to non-iterable
-    while isiterable(result) and len(result) == 1:
-            result = result[0]
     # To integer if possible, so functions that depend on it work
     if isinstance(result, float) and \
         result.is_integer(): result = int(result)
@@ -584,9 +602,10 @@ def get_args(txt: str, comments: str = None) -> list:
 def main(txt: str, stack: list = None, source: dict = None) -> any:
     """Resolve and output the given expression"""
     cleanup_ = cleanup(txt)
+    if not cleanup_: raise SyntaxError("No valid expression to evaluate")
     symbols_ = replace_simple(cleanup_, _SYMBOLS)
-    aliases_ = replace_targeted(symbols_, _NAMES)
-    constants_ = replace_targeted(aliases_, _CONSTANTS)
+    aliases_ = replace_targeted(symbols_, _NAMES, False)
+    constants_ = replace_targeted(aliases_, _CONSTANTS, True)
     multiply_ = implicit_multiplication(constants_)
     implicit_ = implicit_zero(multiply_)
     functions_ = place_functions(implicit_)

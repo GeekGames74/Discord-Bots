@@ -20,7 +20,6 @@ from subprocess import run, PIPE
 from asyncio import gather
 from asyncio import run as asyncrun
 from pkg_resources import require, VersionConflict, DistributionNotFound
-from datetime import datetime
 
 from Modules.data import data_JSON, data_TXT
 from Modules.basic import makeiterable, correspond, least_one, path_from_root
@@ -85,18 +84,17 @@ def names_to_files(*names: str) -> set:
     If no names are given, ask for them.
     """
     all_files = {f.lower().removesuffix(".json")
-            for f in listdir(path_from_root("Resources/Configs/"))
-            if f.endswith(".json")} ; to_launch = set()
+        for f in listdir(path_from_root("Resources/Configs/"))
+        if f.endswith(".json")} ; to_launch = set()
     if not names: # Ask for names
         print("Available config files:\n" + " ".join(all_files))
         names = input("Enter bot names to launch (one line):\n").lower().split(" ")
     names = [n.removesuffix(".json") for n in names if n]
     for n in names:
         corr = correspond(n, all_files)
-        if corr: # Match found
-            to_launch.add(corr)
+        if corr: to_launch.add(corr)
         else: raise FileNotFoundError(f"Did not find file corresponding with '{n}'")
-    return {i for i in to_launch}
+    return to_launch
 
 
 
@@ -123,7 +121,7 @@ def start_screen(venv_path: str, to_launch: set):
             print(f"Creating virtual environment at {venv_path}...")
             run(f"python3 -m venv {venv_path}", shell=True)
 
-        name = "DiscordBot;" + n + datetime.today().strftime(";%d-%m-%Y;%H:%M:%S")
+        name = "Discord-Bot:" + n
         screen = f"screen -dmS '{name}' bash -c"
         source = f"source {venv_path}/bin/activate"
         pip = "pip install -r requirements.txt"
@@ -137,9 +135,8 @@ def start_screen(venv_path: str, to_launch: set):
 
 def get_active_bots():
     """
-    Get all screen sessions starting with DiscordBot
-    Kill those that are not running python
-    Retreive the bot name among the remaining
+    Get all screen sessions starting with Discord-Bot:
+    Retreive the bot name(s) in a list
     """
     result = run(['screen', '-list'], stdout=PIPE, text=True)
     sessions = result.stdout.splitlines()
@@ -147,11 +144,11 @@ def get_active_bots():
     
     active_bots = set()
     for session in sessions:
-        # 00000.DiscordBot;name;dd-mm-yyyy;hh:mm:ss'
+        # 00000.Discord-Bot:name'
         parts = session.split('.')
-        if len(parts) <= 1 or not parts[1].startswith("DiscordBot;"): continue
+        if len(parts) <= 1 or not parts[1].startswith("Discord-Bot:"): continue
         session_id, session_info = parts[0], parts[1]
-        bot_name = session_info.split(';')[1]
+        bot_name = session_info.split(':')[1]
         active_bots.add(bot_name)
     return active_bots
 
