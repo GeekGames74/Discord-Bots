@@ -165,20 +165,30 @@ class System(CMDS.Cog):
         self.Reactech = Reactech(bot)
 
 
-
     @CMDS.command(name = "ping", aliases = ["test", "!", "latency"])
-    async def ping(self, ctx: CTX) -> None:
+    async def ping(self, ctx: CTX) -> int:
         """Returns the current latency (in ms)."""
-        await ctx.send("pong! " + str(int(self.bot.latency*1000)) + "ms")
+        latency = int(self.bot.latency*1000)
+        if ctx: await ctx.send("pong! " + str(latency) + "ms")
+        return latency
+
     
+    @CMDS.command(name = "url", aliases = mixmatch(["join", "invite", ""],
+            ["url", "link"], remove="url"))
+    async def url(self, ctx: CTX) -> str:
+        """Get the invite url for the bot."""
+        url = f"https://discord.com/oauth2/authorize?client_id={self.bot.user.id}"
+        if ctx: await ctx.send("Add this bot to your server :\n"+url)
+        return url
 
 
-    @CMDS.command(name = "kill", aliases = mixmatch(["kill", "end", "destroy", "exit", "stop", "terminate"],
+    @CMDS.command(name = "kill", aliases = mixmatch(["kill", "end", "destroy", "exit", "terminate"],
             ["", "bot", "task", "script", "instance", "yourself"], keeporder = True, remove = "kill"))
     @CMDS.is_owner() # /kill-yourself is now a valid command (yipee ..?)
     async def kill(self, ctx: CTX) -> None:
         """Save and quit the bot instance."""
-        await ctx.message.add_reaction("✅")
+        if ctx: await ctx.message.add_reaction("✅")
+        print("Bot is shutting down")
         await self.bot.close()
         # Save cog: [async] def cog_unload(self):
         # Save ext: [async] def teardown(bot):

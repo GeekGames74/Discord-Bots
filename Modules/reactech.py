@@ -16,7 +16,7 @@ import discord as DSC
 from discord.ext.commands import Bot as Bot
 from discord.ext.commands.context import Context as CTX
 
-from asyncio import TimeoutError, run, gather
+from asyncio import TimeoutError, CancelledError, run, gather
 
 from Modules.discord_utils import DscConverter
 
@@ -65,10 +65,9 @@ class Reactech:
                     or eval(cond, globals(), locals()|{"ctx": ctx, "emoji": emoji})))
         # Default unzip, these variables can be used in 'method'
         try: reaction, user = await self.bot.wait_for("reaction_add", check = check, timeout = timeout)
-        except TimeoutError:
-            pass # Timeout is expected
-        except Exception as e:
-            raise e
+        except (TimeoutError, CancelledError):
+            pass # Timeout is expected, Cancelled is often called on bot shutdown
+        except Exception as e: raise e
         
         else: # Activates on valid reaction
             await eval(method, globals(), locals())

@@ -37,6 +37,7 @@ async def build_bot(path: str):
     Create the bot instance with the given source file.
     Location is given relative to ./Resources/Configs/. directory.
     """
+    print(f"Starting bot '{path}'")
     from discord.ext.commands.bot import Bot
     from discord import Intents, Activity
     if not path.endswith(".json"): path += ".json"
@@ -144,11 +145,11 @@ def get_active_bots():
     
     active_bots = set()
     for session in sessions:
-        # 00000.Discord-Bot:name'
+        # 00000.Discord-Bot:name\t...
         parts = session.split('.')
         if len(parts) <= 1 or not parts[1].startswith("Discord-Bot:"): continue
         session_id, session_info = parts[0], parts[1]
-        bot_name = session_info.split(':')[1]
+        bot_name = session_info.split(':')[1].split('\t')[0]
         active_bots.add(bot_name)
     return active_bots
 

@@ -1,6 +1,6 @@
 """
-Commands and listeners likely on all bots.
-Contains generic setup and managing functions.
+Manage extensions and cogs on the bot instance.
+Might hold command control too in the future.
 """
 
 

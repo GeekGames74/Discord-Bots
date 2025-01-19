@@ -1,6 +1,6 @@
 """
-Commands and listeners likely on all bots.
-Contains generic setup and managing functions.
+Mathematical and logical evaluation for the bot.
+Also includes comprehensive dice notation.
 """
 
 
