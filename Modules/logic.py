@@ -57,7 +57,7 @@ _ALLOW = _ALLOW.union(nums())
 def set_globals() -> None:
     """Set global variables for the module"""
     global _SYMBOLS ; global _NAMES ; global _LOGIC_FUNC
-    _LOGIC_FUNC = data_JSON("Resources/logic_func.json")
+    _LOGIC_FUNC = data_JSON("Resources/Files/logic_func.json")
 
     for key, value in _LOGIC_FUNC.items():
         _NAMES[key] = value["aliases"]
@@ -599,7 +599,8 @@ def get_args(txt: str, comments: str = None) -> list:
 
 
 
-def main(txt: str, stack: list = None, source: dict = None) -> any:
+def main(txt: str, stack: list = None, source: dict = None,
+        noresolve: bool = False) -> any:
     """Resolve and output the given expression"""
     cleanup_ = cleanup(txt)
     if not cleanup_: raise SyntaxError("No valid expression to evaluate")
@@ -609,6 +610,7 @@ def main(txt: str, stack: list = None, source: dict = None) -> any:
     multiply_ = implicit_multiplication(constants_)
     implicit_ = implicit_zero(multiply_)
     functions_ = place_functions(implicit_)
+    if noresolve: return functions_, []
     if stack is None: stack = []
     result = resolve(functions_, stack, source)
     return result, stack

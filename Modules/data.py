@@ -25,10 +25,10 @@ from Modules.basic import path_from_root, makeiterable
 
 
 def checkfile(name: str) -> str:
-    """Tries to find a file in the current directory."""
+    """Tries to find a file in the given directory."""
     path = path_from_root(name)
     if os_path.isfile(path): return path
-    raise FileNotFoundError(f"{path} was not found in current directory")
+    raise FileNotFoundError(f"{path} was not found in given directory")
 
 
 def with_data(source: str, *data: any):

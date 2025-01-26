@@ -25,7 +25,7 @@ from Modules.logic import get_args, is_num
 from Modules.logic import _AFTER_STR, resolve
 from Modules.logic import _REPLACE, replace_simple, ensure_parenthesis
 from Modules.logic import analyse, check_for_func
-from Modules.basic import isiterable, mixmatch, flatten, plural
+from Modules.basic import isiterable, mixmatch, plural
 
 
 async def setup(bot: Bot):
@@ -48,7 +48,9 @@ _DICE_ADDONS = [
     ["kl", "v"],
     ["rr", "reroll"],
     ["r"],
-    ["x", "ex", "exp"]
+    ["p", "pn", "pnt", "pen", "penet", "penetrate"],
+    ["x", "ex", "exp"],
+    ["n", "nuke", "nuclear"]
 ]
 _DICE_LIST = [4, 6, 8, 10, 12, 20, 100]
 
@@ -82,30 +84,34 @@ def roll(s: tuple, x: str) -> (int, int):
     return randint(1, sides) * m, sides
 
 
-def penetrating(s: tuple, x: str, first: bool = True) -> (int,int):
+def penetrating(s: tuple, x: str, p: str = None, first: bool = True) -> (int,int):
     """Roll x, reroll lower x if result is max."""
     sides = int(resolve(x, *s))
+    if isinstance(p, str): p = resolve(p, *s)
+    if isinstance(p, bool): p = {sides}
     if sides not in _DICE_LIST: raise ValueError(
         "Penetrating dice must have sides in " +
         f"[{', '.join(_DICE_LIST)}]")
     rolled = roll(s, sides)[0]
     index = _DICE_LIST.index(sides)
-    if rolled == sides and index != 0:
-        rolled += penetrating(s, _DICE_LIST[index - 1], False)[0]
+    if rolled in p and index != 0:
+        rolled += penetrating(s, _DICE_LIST[index - 1], p, False)[0]
     return rolled, sum(_DICE_LIST[:index+1]) \
         if first else rolled, None
 
 
-def nuclear(s: tuple, x: str, first: bool = True) -> (int,int):
+def nuclear(s: tuple, x: str, n: str = None, first: bool = True) -> (int,int):
     """Roll x, reroll higher x if result is max."""
     sides = int(resolve(x, *s))
+    if isinstance(n, str): n = resolve(n, *s)
+    if isinstance(n, bool): n = {sides}
     if sides not in _DICE_LIST: raise ValueError(
         "Nuclear dice must have sides in " +
         f"[{', '.join([str(i) for i in _DICE_LIST])}]")
     rolled = roll(s, sides)[0]
     index = _DICE_LIST.index(sides)
-    if rolled == sides and index != len(_DICE_LIST)-1:
-        rolled += penetrating(s, _DICE_LIST[index + 1], False)[0]
+    if rolled in n and index != len(_DICE_LIST)-1:
+        rolled += penetrating(s, _DICE_LIST[index + 1], n, False)[0]
     return rolled, sum(_DICE_LIST[index:]) \
         if first else rolled, None
 
@@ -193,7 +199,8 @@ def get_comm(txt: str) -> (str, str):
     return txt.replace(" ", ""), comment
 
 
-async def evaluate_args(args: list, dice: bool = False, is_scuff: bool = False) -> tuple:
+async def evaluate_args(args: list, dice: bool = False,
+        is_scuff: bool = False, noresolve: bool = False) -> tuple:
     """Evaluate the given args using main_math."""
     results = [] ; comms = [] ; stack = [] ; errors = []
     for arg in args:
@@ -201,11 +208,11 @@ async def evaluate_args(args: list, dice: bool = False, is_scuff: bool = False) 
         if not expr: continue
         comms.append(comm)
         try: result, had_dice = await wait_for(to_thread(solver,
-                expr, stack, dice, is_scuff), _ARG_TIMEOUT)
+                expr, stack, dice, is_scuff, noresolve), _ARG_TIMEOUT)
         except TimeoutError as e:
             results.append("TimeoutError")
             errors.append("'TimeoutError': Evaluation has timed out. " +
-                f"(Maximum runtime is set to {_ARG_TIMEOUT} second{plural(_ARG_TIMEOUT)})")
+                f"(maximum runtime is set to {_ARG_TIMEOUT} second{plural(_ARG_TIMEOUT)})")
         except Exception as e:
             results.append(e.__class__.__name__)
             errors.append(f"'{e.__class__.__name__}': {e}")
@@ -215,11 +222,12 @@ async def evaluate_args(args: list, dice: bool = False, is_scuff: bool = False) 
     return results, comms, stack, errors, had_dice
 
 
-def solver(expr: str, stack: list, dice: bool = False, is_scuff: bool = False):
+def solver(expr: str, stack: list, dice: bool = False,
+        is_scuff: bool = False, noresolve: bool = False):
     source = _SOURCE.copy() if dice else {}
     if dice and is_scuff: source["scuff"] = scuff
     if dice: expr, had_dice = translate_dice(expr, is_scuff)
-    result = main_math(expr, stack, source)[0]
+    result = main_math(expr, stack, source, noresolve)[0]
     return result, had_dice
 
 
@@ -256,7 +264,8 @@ def format_lines(results: list, comms: list, stack: list) -> list:
     return lines
 
 
-async def main(self: CMDS.Cog, ctx: CTX, txt: str, auto: bool = False) -> None:
+async def main(self: CMDS.Cog, ctx: CTX, txt: str,
+        auto: bool = False, noresolve: bool = False) -> None:
     """Main function to handle math or dice input."""
     msg = ctx if isinstance(ctx, DSC.Message) else ctx.message
     if msg.reference and (not auto or \
@@ -267,7 +276,7 @@ async def main(self: CMDS.Cog, ctx: CTX, txt: str, auto: bool = False) -> None:
     dice = bool(self.bot.get_cog("Roll"))
     scuff = allow_scuff(ctx)
     results, comms, stack, errors, had_dice = \
-        await evaluate_args(args, dice, scuff)
+        await evaluate_args(args, dice, scuff, noresolve)
     if not results: # No expression
         if not auto: await self.Reactech.reactech_user(ctx, "⚠️",
             "No expression to evaluate (was it commented out?)")
@@ -304,6 +313,12 @@ class Math(CMDS.Cog):
     async def math(self, ctx: CTX, *, msg: str) -> None:
         """Evaluate a given mathematical expression"""
         await main(self, ctx, msg)
+    
+
+    @CMDS.command(name = "noresolve", aliases = ["expr", "expression"])
+    async def noresolve(self, ctx: CTX, *, msg: str) -> None:
+        """Turn the given math notation into a tree of callable elements."""
+        await main(self, ctx, msg, False, True)
         
 
     @CMDS.Cog.listener()
@@ -421,12 +436,25 @@ class Dice:
             if not value: raise SyntaxError(
                 f"'{addon}' must include a value")
             self.r.add(value.content)
-        if addon in _DICE_ADDONS[4]: # x
+        if addon in _DICE_ADDONS[4]: # p
+            if not value: self.penetrating = True
+            else:
+                if (not isinstance(self.penetrating, set)):
+                    self.penetrating = set()
+                self.penetrating.add(value.content)
+        if addon in _DICE_ADDONS[5]: # x
             if not value: self.exploding = True
             else:
                 if (not isinstance(self.exploding, set)):
                     self.exploding = set()
                 self.exploding.add(value.content)
+        if addon in _DICE_ADDONS[6]: # n
+            if not value: self.nuclear = True
+            else:
+                if (not isinstance(self.nuclear, set)):
+                    self.nuclear = set()
+                self.nuclear.add(value.content)
+        
 
 
     def final_param(self) -> bool:
@@ -447,9 +475,13 @@ class Dice:
         """Translate the parameters into a string."""
         if self.sides == "?": output = "scuff()"
         elif self.penetrating:
-            output = surround(self.sides, "penetrating")
+            p = surround(self.penetrating, ",flatten") \
+                if not isinstance(self.penetrating, bool) else ",None"
+            output = surround(self.sides + p, "penetrating")
         elif self.nuclear:
-            output = surround(self.sides, "nuclear")
+            n = surround(self.nuclear, ",flatten") \
+                if not isinstance(self.nuclear, bool) else ",None"
+            output = surround(self.sides + n, "nuclear")
         else: output = surround(self.sides, "roll")
         x = surround(self.exploding, ",flatten") if self.exploding else ",None"
         r = surround(self.r, ",flatten") if self.r else ",None"
@@ -466,7 +498,7 @@ class Dice:
             keep_str += "low"
         if keep_args: output = surround(
             keep_args + [output], keep_str)
-        output = output if self.list else surround(output, "sum")
+        if not self.list: output = surround(output, "sum")
         if self.verbose_level >= 1: output += "#"
         return output
     
@@ -512,11 +544,11 @@ def dice_end(dice: Dice, txt: str, i: int, scuff: bool = False) -> bool:
         if dice.sides is None or dice.sides == "?" :
             dice.set_param(txt[i+1])
             dice.end = i+1
-            return dice_end(dice, txt, i+1)
+            return dice_end(dice, txt, i+1, scuff)
         if not isaddon(txt, i+1):
             if txt[i+1] in _AFTER_STR:
                 dice.end = i+1
-                return dice_end(dice, txt, i+1)
+                return dice_end(dice, txt, i+1, scuff)
             return False
     # Test if is addon after sides_number
     addon = isaddon(txt, i+1)
@@ -528,7 +560,7 @@ def dice_end(dice: Dice, txt: str, i: int, scuff: bool = False) -> bool:
         dice.set_addon(addon, nxt)
         if nxt: dice.end = nxt.end
         else: dice.end = i+len(addon)
-        return dice_end(dice, txt, dice.end)
+        return dice_end(dice, txt, dice.end, scuff)
     # No function name under any circumstance
     if txt[i+1].isalpha(): return False
     # Value, only first time then exit
@@ -537,7 +569,7 @@ def dice_end(dice: Dice, txt: str, i: int, scuff: bool = False) -> bool:
         if dice.sides is not None: return True
         dice.sides = value.content
         dice.end = value.end
-        return dice_end(dice, txt, dice.end)
+        return dice_end(dice, txt, dice.end, scuff)
     return True
 
 

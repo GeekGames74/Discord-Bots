@@ -178,10 +178,8 @@ class Plugins(CMDS.Cog):
 
 
     async def cog_unload(self):
-        if self.bot.get_cog("Plugins_plus"):
-            await self.bot.remove_cog("Plugins_plus")
-        if self.bot.get_cog("Plugins_shorthand"):
-            await self.bot.remove_cog("Plugins_shorthand")
+        await self.bot.remove_cog("Plugins_plus")
+        await self.bot.remove_cog("Plugins_shorthand")
     
 
 
@@ -364,7 +362,7 @@ class Plugins_shorthand(CMDS.Cog):
             _PLUGINS["cogs"][1:], keeporder = True, remove = "loadcogs"))
     async def loadcogs(self, ctx: CTX) -> str:
         """Loads all cogs to the current bot instance."""
-        return await call_plugins(self, ctx, "load", "cogs")
+        return await call_plugins(self, ctx, "load", ["cogs"])
 
 
 
@@ -372,7 +370,7 @@ class Plugins_shorthand(CMDS.Cog):
             _PLUGINS["exts"][2:], keeporder = True, remove = "loadexts"))
     async def loadexts(self, ctx: CTX) -> str:
         """Loads all exts to the current bot instance."""
-        return await call_plugins(self, ctx, "load", "exts")
+        return await call_plugins(self, ctx, "load", ["exts"])
 
 
 
@@ -380,7 +378,7 @@ class Plugins_shorthand(CMDS.Cog):
             _PLUGINS["cogs"][1:], keeporder = True, remove = "unloadcogs"))
     async def unloadcogs(self, ctx: CTX) -> str:
         """Unloads all cogs from the current bot instance."""
-        return await call_plugins(self, ctx, "unload", "cogs")
+        return await call_plugins(self, ctx, "unload", ["cogs"])
 
 
 
@@ -388,7 +386,7 @@ class Plugins_shorthand(CMDS.Cog):
             _PLUGINS["exts"][2:], keeporder = True, remove = "unloadexts"))
     async def unloadexts(self, ctx: CTX) -> str:
         """Unloads all exts from the current bot instance."""
-        return await call_plugins(self, ctx, "unload", "exts")
+        return await call_plugins(self, ctx, "unload", ["exts"])
 
 
 
@@ -396,7 +394,7 @@ class Plugins_shorthand(CMDS.Cog):
             _PLUGINS["cogs"][1:], keeporder = True, remove = "listcogs"))
     async def unloadcogs(self, ctx: CTX) -> str:
         """Lists all cogs in the current bot instance."""
-        return await call_plugins(self, ctx, "list", "cogs")
+        return await call_plugins(self, ctx, "list", ["cogs"])
 
 
 
@@ -404,5 +402,5 @@ class Plugins_shorthand(CMDS.Cog):
             _PLUGINS["exts"][2:], keeporder = True, remove = "listexts"))
     async def unloadexts(self, ctx: CTX) -> str:
         """Lists all exts in the current bot instance."""
-        return await call_plugins(self, ctx, "list", "exts")
+        return await call_plugins(self, ctx, "list", ["exts"])
 
