@@ -40,7 +40,7 @@ async def setup(bot: Bot):
     
 
 
-_ARG_TIMEOUT = 3
+_ARG_TIMEOUT = 5
 
 _DICE_ARGS = set("@!^vl#xpn~")
 _DICE_ADDONS = [
@@ -87,8 +87,8 @@ def roll(s: tuple, x: str) -> (int, int):
 def penetrating(s: tuple, x: str, p: str = None, first: bool = True) -> (int,int):
     """Roll x, reroll lower x if result is max."""
     sides = int(resolve(x, *s))
-    if isinstance(p, str): p = resolve(p, *s)
-    if isinstance(p, bool): p = {sides}
+    p = resolve(p, *s)
+    if not isiterable(p): p = {sides}
     if sides not in _DICE_LIST: raise ValueError(
         "Penetrating dice must have sides in " +
         f"[{', '.join(_DICE_LIST)}]")
@@ -103,15 +103,15 @@ def penetrating(s: tuple, x: str, p: str = None, first: bool = True) -> (int,int
 def nuclear(s: tuple, x: str, n: str = None, first: bool = True) -> (int,int):
     """Roll x, reroll higher x if result is max."""
     sides = int(resolve(x, *s))
-    if isinstance(n, str): n = resolve(n, *s)
-    if isinstance(n, bool): n = {sides}
+    n = resolve(n, *s)
+    if not isiterable(n): n = {sides}
     if sides not in _DICE_LIST: raise ValueError(
         "Nuclear dice must have sides in " +
         f"[{', '.join([str(i) for i in _DICE_LIST])}]")
     rolled = roll(s, sides)[0]
     index = _DICE_LIST.index(sides)
     if rolled in n and index != len(_DICE_LIST)-1:
-        rolled += penetrating(s, _DICE_LIST[index + 1], n, False)[0]
+        rolled += nuclear(s, _DICE_LIST[index + 1], n, False)[0]
     return rolled, sum(_DICE_LIST[index:]) \
         if first else rolled, None
 
@@ -134,7 +134,7 @@ _JESUS = 536998412223250462
 
 _ALLOW = {_JESUS}.union({
     427031555383492609, # Geek
-    #774649444842209300, # Ghost
+    774649444842209300, # Ghost
 })
 
 def allow_scuff(ctx: CTX) -> bool:
@@ -211,7 +211,7 @@ async def evaluate_args(args: list, dice: bool = False,
                 expr, stack, dice, is_scuff, noresolve), _ARG_TIMEOUT)
         except TimeoutError as e:
             results.append("TimeoutError")
-            errors.append("'TimeoutError': Evaluation has timed out. " +
+            errors.append("'TimeoutError': Evaluation has timed out " +
                 f"(maximum runtime is set to {_ARG_TIMEOUT} second{plural(_ARG_TIMEOUT)})")
         except Exception as e:
             results.append(e.__class__.__name__)
@@ -231,7 +231,7 @@ def solver(expr: str, stack: list, dice: bool = False,
     return result, had_dice
 
 
-def ensure_size(result: any, size: int = 100) -> str:
+def ensure_size(result: any, size: int = 256) -> str:
     """Format the given argument into a proper output."""
     if isiterable(result) and len(result) == 1:
         return ensure_size(result[0])
@@ -250,7 +250,7 @@ def format_lines(results: list, comms: list, stack: list) -> list:
         isinstance(results[0], (int, float))):
             results = [ensure_size(i) for i in results]
     else: results = [ensure_size(results[0])]
-    stack = ensure_size(stack, 150) if stack else ""
+    stack = ensure_size(stack, 100) if stack else ""
     output = [results[i]+comms[i] for i in range(len(results))]
     lines = [output[0]] # Create output lines to send
     for i in output[1:]:
@@ -420,6 +420,7 @@ class Dice:
             case "~": self.average_level += 1
             case _: raise ValueError(f"'{param}' not a dice parameter.")
 
+
     def set_addon(self, addon, value: None):
         """Set an addon parameter among _DICE_ADDONS."""
         if addon in _DICE_ADDONS[0]: # kh
@@ -455,7 +456,6 @@ class Dice:
                     self.nuclear = set()
                 self.nuclear.add(value.content)
         
-
 
     def final_param(self) -> bool:
         """Finalise dice when all parameters are set."""
@@ -553,7 +553,10 @@ def dice_end(dice: Dice, txt: str, i: int, scuff: bool = False) -> bool:
     # Test if is addon after sides_number
     addon = isaddon(txt, i+1)
     if addon:
-        if dice.sides is None: return False
+        if dice.sides is None and \
+            not dice.advantage and \
+            not dice.disadvantage:
+                return False
         if i+len(addon) <= len(txt)-2:
             nxt = dice_value(txt, i+len(addon)+1, "(", False)
         else: nxt = None

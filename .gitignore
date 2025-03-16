@@ -1,13 +1,14 @@
 __pycache__/
-Secret/*
-!Secret/.gitkeep
+venv/
 
+Data/*
 Resources/Assets/Sounds/*
-!Resources/Assets/Sounds/.gitkeep
+Secret/*
 
 *token*
 *Token*
 *TOKEN*
 
-venv/
+!.gitkeep
+
 *.log

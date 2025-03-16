@@ -12,7 +12,9 @@ Local formats (txt, json, local bd) or external (bd, endpoints...).
 
 
 from os import path as os_path
+from os import makedirs
 from json import load as json_load
+from json import dump as json_dump
 
 from Modules.basic import path_from_root, makeiterable
 
@@ -94,6 +96,16 @@ def data_JSON(file: str, data: tuple = None) -> dict:
         elif len(data) == 1 or not data[1]:
             content[k] = v
     return content
+
+
+# write to json
+def write_JSON(file: str, data: any) -> None:
+    """Write data (no json-ified) to file using json."""
+    path = path_from_root(file)
+    if not os_path.exists(path):
+        makedirs(os_path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json_dump(data, f, indent=4)
 
 
 

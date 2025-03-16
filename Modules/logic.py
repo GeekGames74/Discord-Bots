@@ -404,7 +404,7 @@ class Holder:
     def iter_(s,x,y):
         return [resolve(x, *s) for i in range(resolve(y, *s))]
     @staticmethod
-    def iteravg_(s,x,y=10000):
+    def iteravg_(s,x,y=1000):
         return Holder.avg_(*[resolve(x, *s) for i in range(resolve(y, *s))])
     @staticmethod
     def itermax_(s,x,y=1000):
