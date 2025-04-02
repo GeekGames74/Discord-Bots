@@ -60,7 +60,7 @@ class Reactech:
         def check(reaction: DSC.Reaction, user: DSC.User) -> bool:
             return (msg == reaction.message # On the current message
                     and emoji == reaction.emoji # With specified emoji
-                    and user != self.bot.user # Reaction does not orriginate from the bot
+                    and user != self.bot.user # Reaction does not originate from the bot
                     and (not cond # And, if specified, checking another condition
                     or eval(cond, globals(), locals()|{"ctx": ctx, "emoji": emoji})))
         # Default unzip, these variables can be used in 'method'

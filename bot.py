@@ -19,7 +19,7 @@ from sys import argv
 from subprocess import run, PIPE
 from asyncio import gather
 from asyncio import run as asyncrun
-from pkg_resources import require, VersionConflict, DistributionNotFound
+from pkg_resources import require
 
 from Modules.data import data_JSON, data_TXT
 from Modules.basic import makeiterable, correspond, least_one, path_from_root
@@ -142,7 +142,7 @@ def get_active_bots():
     result = run(['screen', '-list'], stdout=PIPE, text=True)
     sessions = result.stdout.splitlines()
     sessions = [line.strip() for line in sessions if '\t' in line]
-    
+
     active_bots = set()
     for session in sessions:
         # 00000.Discord-Bot:name\t...
@@ -168,7 +168,7 @@ def main(to_launch: set) -> None:
         await gather(*schedule)
     schedule = [build_bot(f) for f in to_launch]
     asyncrun(asyncmain(schedule))
-    
+
 
 
 if __name__ == "__main__":
@@ -182,11 +182,10 @@ if __name__ == "__main__":
         require(data_TXT("requirements.txt"))
         main(to_launch)
     elif pltf_sys() == "Linux":
-        try: require(data_TXT("requirements.txt"))
-        except (VersionConflict, DistributionNotFound) as e:
+        try: main(to_launch)
+        except ModuleNotFoundError as e:
             if not noscreen: start_screen("./venv", to_launch)
             else: raise e
         except Exception as e: raise e
-        else: main(to_launch)
     else: raise NotImplementedError("Can only run in windows and linux")
 

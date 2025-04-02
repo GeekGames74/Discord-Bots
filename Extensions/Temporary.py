@@ -14,12 +14,13 @@ import discord as DSC
 from discord.ext import commands as CMDS
 from discord.ext.commands.bot import Bot
 from discord.ext.commands.context import Context as CTX
+from asyncio import TimeoutError, CancelledError
 
-from dice import roll as ROLL
+from asyncio import gather
+from datetime import datetime as dt
+import string
 
-from Modules.basic import least_one
 from Modules.reactech import Reactech
-
 
 
 async def setup(bot: Bot):
@@ -30,6 +31,49 @@ async def setup(bot: Bot):
 ##################################################
 # COG
 ##################################################
+
+
+_SCHEDULE_DAYS = {
+    "en": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "fr": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"],
+}
+
+_SCHEDULE_WAIT_TIMEOUT = 600 # seconds
+_SCHEDULE_EMOJIS = [
+    '🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬',
+    '🇭', '🇮', '🇯', '🇰', '🇱', '🇲', '🇳',
+    '🇴', '🇵', '🇶', '🇷', '🇸', '🇹', '🇺',
+    '🇻', '🇼', '🇽', '🇾', '🇿'
+]
+
+
+def generate_schedule(args: list, n: int = 0, shift: int = 0,
+        include: list = None, days: list = "en") -> (list, list):
+    """
+    Generate the schedule text with <args> as lines and <n> columns/days (0 is now)
+    Return the message list as well as the reactions to add
+    """
+    if include is None: include = [True for i in range(len(args)*(n+1))]
+    if isinstance(days, str): days = _SCHEDULE_DAYS[days]
+    weekday = (dt.today().weekday() + shift) % 7 ; emojis = []
+    
+    max_arg_len = max([len(a) for a in args])
+    lines = [["`" + " "*max_arg_len] if i==0 else
+            ["`" + args[i-1].ljust(max_arg_len) + "`"]
+            for i in range(len(args)+1)]
+    
+    for i in range(n+1):
+        lines[0] += [" " +days[(i+weekday)%7][:2]]
+        if (i+weekday)%7 == 6: lines[0][-1] += " "
+        for j in range(len(args)):
+            if include[i*len(args)+j]: 
+                letter = string.ascii_lowercase[len(emojis)]
+                lines[j+1] += [f" :regional_indicator_{letter}:"]
+                emojis += [_SCHEDULE_EMOJIS[len(emojis)]]
+            else: lines[j+1] += [f" :black_large_square:"]
+    
+    lines[0][-1] += "`"
+    return lines, emojis
 
 
 
@@ -57,6 +101,85 @@ class Temp(CMDS.Cog):
             try: exec(txt)
             except Exception as e: raise e
         except Exception as e: print(e)
+
+
+
+    @CMDS.command(name = "schedule", aliases = ["sked", "sched", "skedule"])
+    async def schedule(self, ctx: CTX, *args: str) -> None:
+        """
+        Create a schedule query to check when people are available.
+        As arguments, write the lines you wish to provide (ex: Morning Afternoon Evening)
+        as well as a positive integer x or +x for the amount of days to provide, 0 being today.
+        If the first argument is a language code, this sets the language for the message
+        (currently supported: 'en', 'fr')
+        Remember that discord does not allow for more than 20 emojis per message
+        React with ✅ to finalize the schedule.
+        """
+        if args and len(args) >= 3 and args[0] in _SCHEDULE_DAYS.keys():
+            days = _SCHEDULE_DAYS[args[0]]
+            args = args[1:]
+        else: days = _SCHEDULE_DAYS["en"]
+
+        if not args: return await self.Reactech.reactech_user(ctx,
+            "⁉️", "Insufficient number of arguments (minimum 2)")
+        args = [a.replace("`", "") for a in args]
+
+        i = 0; n = 99
+        while i < len(args):
+            if args[i].isdigit():
+                n = int(args[i])
+                args = args[:i] + args[i+1:]
+            elif args[i].startswith("+") and args[i][1:].isdigit():
+                n = int(args[i][1:])
+                args = args[:i] + args[i+1:]
+            else: i += 1
+
+        if len(args)*(n+1) > 19: n = (19//len(args)) - 1
+        if n <= -1: return await self.Reactech.reactech_user(ctx,
+            "❌", "Could not display schedule: too many lines")
+
+        gather(self.Reactech.reactech(ctx, "ℹ️", timeout = _SCHEDULE_WAIT_TIMEOUT,
+            method = "user.send('Schedule is being built')"))
+        lines, emojis = generate_schedule(args, n, days = days)
+        msg = await ctx.author.send("\n".join(["".join(i) for i in lines]))
+        for e in emojis + ["✅"]: await msg.add_reaction(e)
+
+        def check(reaction: DSC.Reaction, user: DSC.User) -> bool:
+            return (reaction.message == msg and \
+                    reaction.emoji == "✅"
+                    and user == ctx.author)
+        try: await self.bot.wait_for("reaction_add", timeout = _SCHEDULE_WAIT_TIMEOUT, check=check)
+        except TimeoutError:
+            await msg.delete()
+            await ctx.message.remove_reaction("ℹ️", self.bot.user)
+            mention = "" if ctx.guild is None else f" ({ctx.channel.mention})"
+            return await self.Reactech.reactech_user(ctx, "⚠️",
+                f"Schedule command timed out{mention}")
+        except CancelledError: return
+        except Exception as e: raise e
+        
+        message = await ctx.author.dm_channel.get_partial_message(msg.id).fetch()
+        reactions_to_keep = [
+            len([u async for u in r.users()]) >= 2
+            for r in message.reactions if r.emoji in _SCHEDULE_EMOJIS
+        ]
+
+        await message.delete()
+        await ctx.message.remove_reaction("ℹ️", self.bot.user)
+        shift = 0
+        
+        if any(reactions_to_keep):
+            while not any(reactions_to_keep[:len(args)]):
+                reactions_to_keep = reactions_to_keep[len(args):]
+                shift += 1 ; n -= 1
+            while not any(reactions_to_keep[-len(args):]):
+                reactions_to_keep = reactions_to_keep[:-len(args)]
+                n -= 1
+        else: reactions_to_keep = None
+
+        lines, emojis = generate_schedule(args, n, shift, reactions_to_keep, days)
+        msg = await ctx.reply("\n".join(["".join(i) for i in lines]))
+        for e in emojis: await msg.add_reaction(e)
 
 
 

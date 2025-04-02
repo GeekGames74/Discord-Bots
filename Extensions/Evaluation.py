@@ -52,7 +52,7 @@ _DICE_ADDONS = [
     ["x", "ex", "exp"],
     ["n", "nuke", "nuclear"]
 ]
-_DICE_LIST = [4, 6, 8, 10, 12, 20, 100]
+DICE_LIST = [4, 6, 8, 10, 12, 20, 100]
 
 
 def anyroll(s: tuple, expr: str, x: str = None,
@@ -89,14 +89,14 @@ def penetrating(s: tuple, x: str, p: str = None, first: bool = True) -> (int,int
     sides = int(resolve(x, *s))
     p = resolve(p, *s)
     if not isiterable(p): p = {sides}
-    if sides not in _DICE_LIST: raise ValueError(
+    if sides not in DICE_LIST: raise ValueError(
         "Penetrating dice must have sides in " +
-        f"[{', '.join(_DICE_LIST)}]")
+        f"[{', '.join(DICE_LIST)}]")
     rolled = roll(s, sides)[0]
-    index = _DICE_LIST.index(sides)
+    index = DICE_LIST.index(sides)
     if rolled in p and index != 0:
-        rolled += penetrating(s, _DICE_LIST[index - 1], p, False)[0]
-    return rolled, sum(_DICE_LIST[:index+1]) \
+        rolled += penetrating(s, DICE_LIST[index - 1], p, False)[0]
+    return rolled, sum(DICE_LIST[:index+1]) \
         if first else rolled, None
 
 
@@ -105,14 +105,14 @@ def nuclear(s: tuple, x: str, n: str = None, first: bool = True) -> (int,int):
     sides = int(resolve(x, *s))
     n = resolve(n, *s)
     if not isiterable(n): n = {sides}
-    if sides not in _DICE_LIST: raise ValueError(
+    if sides not in DICE_LIST: raise ValueError(
         "Nuclear dice must have sides in " +
-        f"[{', '.join([str(i) for i in _DICE_LIST])}]")
+        f"[{', '.join([str(i) for i in DICE_LIST])}]")
     rolled = roll(s, sides)[0]
-    index = _DICE_LIST.index(sides)
-    if rolled in n and index != len(_DICE_LIST)-1:
-        rolled += nuclear(s, _DICE_LIST[index + 1], n, False)[0]
-    return rolled, sum(_DICE_LIST[index:]) \
+    index = DICE_LIST.index(sides)
+    if rolled in n and index != len(DICE_LIST)-1:
+        rolled += nuclear(s, DICE_LIST[index + 1], n, False)[0]
+    return rolled, sum(DICE_LIST[index:]) \
         if first else rolled, None
 
 
@@ -278,9 +278,8 @@ async def main(self: CMDS.Cog, ctx: CTX, txt: str,
     results, comms, stack, errors, had_dice = \
         await evaluate_args(args, dice, scuff, noresolve)
     if not results: # No expression
-        if not auto: await self.Reactech.reactech_user(ctx, "⚠️",
+        if not auto: return await self.Reactech.reactech_user(ctx, "⚠️",
             "No expression to evaluate (was it commented out?)")
-        return
     # Auto filter 
     if auto and errors or txt.removeprefix("+") \
         .startswith(str(results[0])): return

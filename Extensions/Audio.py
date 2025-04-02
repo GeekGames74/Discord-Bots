@@ -103,15 +103,13 @@ class Voice(CMDS.Cog):
     async def leave(self, ctx: CTX) -> None:
         """Leave the voice channel the bot is in."""
         if ctx.guild is None:
-            await self.Reactech.reactech_user(ctx, "🚫",
+            return await self.Reactech.reactech_user(ctx, "🚫",
                 "Command only works in servers.")
-            return
         
         vc = ctx.voice_client
         if vc is None or not vc.is_connected():
-            await self.Reactech.reactech_channel(ctx, "ℹ️",
+            return await self.Reactech.reactech_channel(ctx, "ℹ️",
                 "Bot is not connected to a voice channel.")
-            return
         
         channel = vc.channel
         await vc.disconnect()
@@ -124,16 +122,14 @@ class Voice(CMDS.Cog):
     async def volume(self, ctx: CTX, txt: str = None) -> None:
         """Count all voice channels the bot is currently connected to."""
         if ctx.guild is None:
-            await self.Reactech.reactech_user(ctx, "🚫",
+            return await self.Reactech.reactech_user(ctx, "🚫",
                 "Command only works in servers.")
-            return
         
         try: volumes = data_JSON("Data/volumes.json")
         except FileNotFoundError: volumes = {}
         volume = volumes.get(str(ctx.guild.id), 100)
         if txt is None:
-            await ctx.send("Volume is currently at " + str(volume) + "%")
-            return
+            return await ctx.send("Volume is currently at " + str(volume) + "%")
         
         relative = None
         txt = txt.removeprefix("=")
@@ -145,9 +141,8 @@ class Voice(CMDS.Cog):
                     "Volume was not correctly formatted.")
             txt = txt[1:]
         if not txt or not txt.isdigit():
-            await self.Reactech.reactech_user(ctx, "⁉️",
+            return await self.Reactech.reactech_user(ctx, "⁉️",
                 "Volume was not correctly formatted.")
-            return
         nb = int(txt) ; msg = ""
 
         if relative is None: volume = nb
@@ -163,7 +158,7 @@ class Voice(CMDS.Cog):
         write_JSON("Data/volumes.json", volumes)
         if ctx.voice_client:
             vc = ctx.voice_client
-            if vc and vc.is_connected():
+            if vc and vc.is_connected() and vc.source:
                 vc.source.volume = volume/100
         msg = f"Volume set to {volume}%{msg}."
         await self.Reactech.reactech_valid(ctx, msg)
@@ -180,8 +175,7 @@ class Voice(CMDS.Cog):
         if cmd is None or cmd.lower() in ["l", "ls", "list", "c", "count"]:
             msg = ""
             if len(vcs) == 0:
-                await ctx.send("The bot is not connected to any voice channels.")
-                return
+                return await ctx.send("The bot is not connected to any voice channels.")
             playing = [vc for vc in vcs if vc.is_playing()]
             msg += f"The bot is connected to `{len(vcs)}` voice channel{plural(len(vcs))}."
             if playing: msg += f"\n`{len(vcs)}` of those {plural(vcs, _1='is', _p='are')} actively playing."
@@ -194,8 +188,7 @@ class Voice(CMDS.Cog):
                         msg += f"\n- '#{vc.channel.name}' in '{vc.guild.name}' " + playmsg
                     else:
                         msg += f"\n- #{vc.channel.id} in {vc.guild.id} " + playmsg
-            await ctx.send(msg)
-            return
+            return await ctx.send(msg)
 
         CMD_MUTE = ["m", "mute", "p", "pause"]
         CMD_STOP = ["s", "stop", "end"]
@@ -293,22 +286,19 @@ class Sounds(CMDS.Cog):
         
         vc = ctx.voice_client
         if vc.is_playing() and msg is None:
-            await self.Reactech.reactech_channel(ctx, "ℹ️",
+            return await self.Reactech.reactech_channel(ctx, "ℹ️",
                 "Bot is already playing a sound.")
-            return
         
         if vc.is_paused() and msg is None:
             vc.resume()
             try: source = f"`{vc.playing}`"
             except AttributeError: source = "audio"
-            await self.Reactech.reactech_valid(ctx,
+            return await self.Reactech.reactech_valid(ctx,
                 f"Resumed {source} in {vc.channel.mention}.")
-            return
         
         if msg is None:
-            await self.Reactech.reactech_user(ctx, "⁉️",
+            return await self.Reactech.reactech_user(ctx, "⁉️",
                 "No sound filename specified.")
-            return
         
         name = format_filename(msg)[0]
         try:
@@ -326,9 +316,8 @@ class Sounds(CMDS.Cog):
             exts.append(splitted[1])
         final = correspond(name, files)
         if final is None:
-            await self.Reactech.reactech_user(ctx,
+            return await self.Reactech.reactech_user(ctx,
                 "❓", f"Could not find sound file `{msg}`.")
-            return
         
         file = final + "." + exts[files.index(final)]
         path = checkfile(RELATIVE_PATH + file)
@@ -348,20 +337,17 @@ class Sounds(CMDS.Cog):
     async def pause(self, ctx: CTX) -> None:
         """Stop the sound being played."""
         if ctx.guild is None:
-            await self.Reactech.reactech_user(ctx, "🚫",
+            return await self.Reactech.reactech_user(ctx, "🚫",
                 "Command only works in servers.")
-            return
         
         vc = ctx.voice_client
         if vc is None or not vc.is_connected():
-            await self.Reactech.reactech_channel(ctx, "🚫",
+            return await self.Reactech.reactech_channel(ctx, "🚫",
                 "Bot is not connected to a voice channel.")
-            return
         
         if not vc.is_playing():
-            await self.Reactech.reactech_user(ctx, "ℹ️",
+            return await self.Reactech.reactech_user(ctx, "ℹ️",
                 f"No sound is currently playing in {vc.channel.mention}.")
-            return
         
         vc.pause()
         try: source = f"`{vc.playing}`"
