@@ -37,9 +37,9 @@ async def build_bot(path: str):
     Create the bot instance with the given source file.
     Location is given relative to ./Resources/Configs/. directory.
     """
-    print(f"Starting bot '{path}'")
     from discord.ext.commands.bot import Bot
     from discord import Intents, Activity
+    print(f"Starting bot '{path}'")
     if not path.endswith(".json"): path += ".json"
     data = data_JSON("Resources/Configs/" + path)
     base_intent = getattr(Intents(), data["base_intent"])

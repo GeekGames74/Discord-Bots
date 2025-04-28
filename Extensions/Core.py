@@ -177,8 +177,8 @@ class System(CMDS.Cog):
             ["url", "link"], remove="url"))
     async def url(self, ctx: CTX) -> str:
         """Get the invite url for the bot."""
-        url = f"https://discord.com/oauth2/authorize?client_id={self.bot.user.id}"
-        if ctx: await ctx.send("Add this bot to your server :\n"+url)
+        url = f"https://discord.com/oauth2/authorize?client_id={self.bot.user.id}&permissions=0&scope=bot%20applications.commands"
+        if ctx: await ctx.send(f"[Add this bot to your server]({url})")
         return url
 
 

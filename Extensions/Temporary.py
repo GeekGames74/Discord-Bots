@@ -58,7 +58,7 @@ def generate_schedule(args: list, n: int = 0, shift: int = 0,
     weekday = (dt.today().weekday() + shift) % 7 ; emojis = []
     
     max_arg_len = max([len(a) for a in args])
-    lines = [["`" + " "*max_arg_len] if i==0 else
+    lines = [[" `" + " "*max_arg_len] if i==0 else
             ["`" + args[i-1].ljust(max_arg_len) + "`"]
             for i in range(len(args)+1)]
     
@@ -102,6 +102,22 @@ class Temp(CMDS.Cog):
             except Exception as e: raise e
         except Exception as e: print(e)
 
+
+    @CMDS.command(name = "cornelius")
+    @CMDS.is_owner()
+    async def cornelius(self, ctx: CTX, amount: int, *, txt = "") -> None:
+        msg = ""
+        if amount >= 10: msg += f"- {amount//10*5} PV temporaires\n"
+        if amount >= 20: msg += f"- {amount//20} prochaines offenses avec avantage\n"
+        if amount >= 30: msg += f"- {amount//30} prochaines défenses avec avantage\n"
+        if amount >= 40: msg += f"- multiattaque +{amount//40} ou sort lvl{amount//40*2} sans consommer d'incantation\n"
+        if amount >= 50: msg += f"- Vitesses multipliées par {(amount//50)+1}\n"
+        if amount >= 60: msg += f"- Dégâts multipliés par {(amount//60)+1}\n"
+        if amount >= 70: msg += f"- Résistance aux dégâts\n"
+        if amount%10: msg += f"{amount%10} points conservés pour le tour suivant\n"
+        if msg: msg = "Jusqu'à la fin de votre prochain tour:\n" + msg + txt
+        msg = msg.removesuffix("\n")
+        if msg: await ctx.reply(msg, mention_author=False)
 
 
     @CMDS.command(name = "schedule", aliases = ["sked", "sched", "skedule"])
