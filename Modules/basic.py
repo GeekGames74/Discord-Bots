@@ -147,6 +147,12 @@ def correspond(needle: str, haystack: set()) -> str:
     return None
 
 
+def surround(txt, prefix) -> str:
+    """Return string enclosed by (), optionally with prefix."""
+    if isiterable(txt): txt = ','.join(txt)
+    return f"{prefix}({txt})" if prefix else f"({txt})"
+
+
 
 ##################################################
 # MAIN

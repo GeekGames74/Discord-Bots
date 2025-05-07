@@ -81,7 +81,6 @@ set_globals()
 
 _AFTER_STR = "".join(_AFTER.keys())
 _TYPES = {"comma", "other", "symbol", "num", "alpha", "par", "func"}
-_MAX_STACK = 1000
 
 
 
@@ -602,17 +601,23 @@ def get_args(txt: str, comments: str = None) -> list:
 def main(txt: str, stack: list = None, source: dict = None,
         noresolve: bool = False) -> any:
     """Resolve and output the given expression"""
+    if stack is None: stack = []
     cleanup_ = cleanup(txt)
+    if noresolve: stack.append(cleanup_)
     if not cleanup_: raise SyntaxError("No valid expression to evaluate")
     symbols_ = replace_simple(cleanup_, _SYMBOLS)
+    if noresolve and stack[-1] != symbols_: stack.append(symbols_)
     aliases_ = replace_targeted(symbols_, _NAMES, False)
+    if noresolve and stack[-1] != aliases_: stack.append(aliases_)
     constants_ = replace_targeted(aliases_, _CONSTANTS, True)
+    if noresolve and stack[-1] != constants_: stack.append(constants_)
     multiply_ = implicit_multiplication(constants_)
+    if noresolve and stack[-1] != multiply_: stack.append(multiply_)
     implicit_ = implicit_zero(multiply_)
+    if noresolve and stack[-1] != implicit_: stack.append(implicit_)
     functions_ = place_functions(implicit_)
-    if noresolve: return functions_, []
-    if stack is None: stack = []
-    result = resolve(functions_, stack, source)
+    if noresolve and stack[-1] != functions_: stack.append(functions_)
+    result = None if noresolve else resolve(functions_, stack, source)
     return result, stack
 
 
