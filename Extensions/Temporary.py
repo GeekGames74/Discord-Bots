@@ -18,6 +18,7 @@ from asyncio import TimeoutError, CancelledError
 
 from asyncio import gather
 from datetime import datetime as dt
+from traceback import TracebackException
 import string
 
 from Modules.reactech import Reactech
@@ -206,7 +207,7 @@ class Temp(CMDS.Cog):
 
 
     @CMDS.Cog.listener()
-    async def on_command_error(self, ctx: CTX, error):
+    async def on_command_error(self, ctx: CTX, error: Exception):
         # Message to display on error, along with react emoji
         a= ("⛔","This command requires a role or permission you do not posess.\nIf you think this is a mistake, contact server admins.")
         b= ("📛","This command can only be operated by a bot admin.\nIf you think this is a mistake, contact the developer(s).")
@@ -247,4 +248,6 @@ class Temp(CMDS.Cog):
                 print(type_, i)
                 await self.Reactech.reactech_user(ctx, i[0], i[1])
                 return
-        print(error) # 'print()' or 'raise' depending on your needs
+        print('\n'+'#'*50+'\n')
+        print(''.join(TracebackException.from_exception(error).format()))
+        print('\n'+'#'*50+'\n')

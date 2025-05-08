@@ -154,6 +154,15 @@ def surround(txt, prefix) -> str:
 
 
 
+def yes_no(txt: str) -> bool:
+    """Evaluate text to answer true or false"""
+    txt = txt.lower()
+    if correspond(txt, ["yes", "true", "oui", "vrai"]): return True
+    if correspond(txt, ["non", "false", "faux"]): return False
+    return None
+
+
+
 ##################################################
 # MAIN
 ##################################################

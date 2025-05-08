@@ -119,6 +119,73 @@ class DscConverter:
 
 
 ##################################################
+# FUNCTIONS
+##################################################
+
+
+
+def find_vc(converter: DscConverter, ctx: CTX, perm1: str = None,
+    target: str = None, perm2: str = "") -> DSC.VoiceChannel|bool:
+    """
+    Find the voiceprotocol to use in the context of a command.
+    perms must be a Discord.Permission property or None, with perm1 local|guild and perm2 remote
+    """
+    if perm1 is not None and (getattr(DSC.Permissions.all(), perm1, None) is None or \
+        not isinstance(getattr(DSC.Permissions.all(), perm1), bool)):
+            raise ValueError("perm1 is not a Discord.Permission property")
+    if perm2 == "": perm2 = perm1
+    elif getattr(DSC.Permissions.all(), perm2, None) is None or \
+        not isinstance(getattr(DSC.Permissions.all(), perm2), bool):
+            raise ValueError("perm2 is not a Discord.Permission property")
+    if ctx.guild:
+        if target is None:
+            if ctx.author.voice: return ctx.author.voice.channel
+            if ctx.guild.voice_client and ctx.guild.voice_client.is_connected():
+                channel = ctx.guild.voice_client.channel
+                if perm1 is None or getattr(channel.permissions_for(ctx.author), perm1): return channel
+                return False
+            return None
+        else: # resolve given channel by guild
+            try: channel = converter.convertobj(target, "voice", ctx)
+            except TypeError: pass
+            if isinstance(channel, DSC.VoiceChannel): 
+                if perm1 is None or getattr(channel.permissions_for(ctx.author), perm1):
+                    return channel
+                return False
+            return None
+    if target:
+        try: guild = converter.convertobj(target, "guild")
+        except TypeError: pass
+        if isinstance(guild, DSC.Guild):
+            member = guild.get_member(ctx.author.id)
+            if not member: return None
+            if not guild.voice_client: return None
+            channel = guild.voice_client.channel
+            if not channel: return None
+            if perm2 is None or getattr(channel.permissions_for(member), perm2): return channel
+            return False
+    for guild in ctx.bot.guilds:
+        member = guild.get_member(ctx.author.id)
+        if not member: continue # only check guilds in common
+        if target is None:
+            if member.voice:
+                if perm2 is None or getattr(member.voice.channel.permissions_for(member), perm2):
+                        return member.voice.channel
+                return False
+        else: # resolve given channel for every guild
+            try: target = converter.convertobj(target, "voice", guild)
+            except TypeError: pass
+            else:
+                if isinstance(target, DSC.VoiceChannel): 
+                    if perm2 is None or getattr(target.permissions_for(member), perm2):
+                        return target
+                    return False
+                return None
+    return None
+
+
+
+##################################################
 # MAIN
 ##################################################
 

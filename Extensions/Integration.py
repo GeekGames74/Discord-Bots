@@ -139,10 +139,10 @@ async def format_feedback(feedback: dict, action: str, ctx: CTX) -> str:
 
 
 
-def feedback_line(action: str, status: str, type: str, input: set) -> str:
+def feedback_line(action: str, status: str, type: str, input: set|dict) -> str:
     """Returns a formatted line for the feedback function."""
-    if len(input) == 0: return ""
-    input = sorted(input)
+    if not input: return ""
+    if isinstance(input, set): input = sorted(input)
 
     txt = f"{len(input)} {type}{plural(input)}" # X thing(s)
     txt += _FEEDBACK[status][plural(input,0,1,0,1)] # has/have been [+ simple action descriptor]
@@ -185,7 +185,6 @@ class Plugins(CMDS.Cog):
 
     @CMDS.command(name = "plugins", aliases = mixmatch(["manage", ""],
             _PLUGINS["plugins"], keeporder = True, remove = "plugins"))
-    @CMDS.is_owner()
     async def plugins(self, ctx: CTX, action: str = "list", *plugins: str) -> str:
         """Manage plugins in relation to the current bot instance."""
         action = action.lower() ; txt = ""
@@ -213,6 +212,9 @@ class Plugins(CMDS.Cog):
             if ctx: await ctx.send(txt)
             return txt.replace("`", "'")
         
+        if not await self.bot.is_owner(ctx.author): return await self.Reactech.reactech_user(
+            ctx, "📛", "You do not have permission to manage bot plugins.")
+
         feedback = {i: {"cogs": set(), "exts": set()} for i in ["ok", "nochange"]}
         feedback["unknown"] = set() ; feedback["errors"] = {"cogs": {}, "exts": {}}
         exts, not_exts = detect_exts(plugins)
