@@ -28,7 +28,9 @@ from Modules.basic import isiterable, surround
     
 
 
+# Acceptable args on _d<here>_
 _DICE_ARGS = set("@!^vl#xpn~")
+# Acceptable args on _d_<here>
 _DICE_ADDONS = [
     ["kh", "^"],
     ["kl", "v"],
@@ -44,17 +46,25 @@ DICE_LIST = [4, 6, 8, 10, 12, 20, 100]
 def anyroll(s: tuple, expr: str, x: str = None,
             r: str = None, rr: str = None) -> int:
     """Roll expr, explode x, reroll y once, reroll all z."""
+    # x, r and rr need only to be evaluated once in their str form
     x = resolve(x, *s) or set()
     r = resolve(r, *s) or set()
     rr = resolve(rr, *s) or set()
+
     rolled = None ; mx = None
     while rolled is None or rolled in rr:
         result = resolve(expr, *s)
+        # Most dice function return (result, max)
         if isinstance(result, tuple):
             rolled, mx = int(result[0]), result[1]
         else: rolled = int(result[0])
+        # 'reroll-once' must be an iterable
         if r and isiterable(r) and rolled in r:
+            # Once exhausted, do not apply on recursion
             return anyroll(s, expr, x, None, rr)
+
+    # If exploding is true and rolled max
+    # Or exploding is a list and rolled among it
     if x and ((isinstance(x, bool) and mx and rolled == mx)
             or (isiterable(x) and rolled in x)):
         rolled += anyroll(s, expr, x, r, rr)
@@ -64,42 +74,52 @@ def anyroll(s: tuple, expr: str, x: str = None,
 def roll(s: tuple, x: str) -> (int, int):
     """Roll an x sided dice."""
     sides = int(resolve(x, *s)) ; m = 1
-    if sides == 0: return 0, None
+    if sides == 0: return 0, None # d0 = [0]
+    # randint() only accepts positive numbers, so we use m as negative multiplier
     (sides, m) = (sides, 1) if sides > 0 else (-sides, -1)
-    if sides == 1: return randint(0, 1) * m, sides
-    return randint(1, sides) * m, sides
+    # Note that in case of negative sides, redurned max is the lowest
+    if sides == 1: return randint(0, 1) * m, sides # d1 = [0;1] | d-1 = [-1;0]
+    return randint(1, sides) * m, sides # dX = [1;X] | d-X = [-X;-1]
 
 
 def penetrating(s: tuple, x: str, p: str = None, first: bool = True) -> (int,int):
     """Roll x, reroll lower x if result is max."""
+    # Like anyroll(), only calculated once
     sides = int(resolve(x, *s))
     p = resolve(p, *s)
-    if not isiterable(p): p = {sides}
     if sides not in DICE_LIST: raise ValueError(
         "Penetrating dice must have sides in " +
         f"[{', '.join(DICE_LIST)}]")
-    rolled = roll(s, sides)[0]
+    
+    # Roll the actual dice
+    rolled, mx = roll(s, sides)
+    # If p is not instantiated, use the max of the dice
+    if not isiterable(p): p = {mx}
     index = DICE_LIST.index(sides)
-    if rolled in p and index != 0:
+    if rolled in p and index != 0: # Penetrating : lower face on reroll 
         rolled += penetrating(s, DICE_LIST[index - 1], p, False)[0]
     return rolled, sum(DICE_LIST[:index+1]) \
-        if first else rolled, None
+        if first else rolled, None # ^ Compute max here as well
 
 
 def nuclear(s: tuple, x: str, n: str = None, first: bool = True) -> (int,int):
     """Roll x, reroll higher x if result is max."""
+    # Like anyroll(), only calculated once
     sides = int(resolve(x, *s))
     n = resolve(n, *s)
-    if not isiterable(n): n = {sides}
     if sides not in DICE_LIST: raise ValueError(
         "Nuclear dice must have sides in " +
         f"[{', '.join([str(i) for i in DICE_LIST])}]")
-    rolled = roll(s, sides)[0]
+    
+    # Roll the actual dice
+    rolled, mx = roll(s, sides)
+    # If p is not instantiated, use the max of the dice
+    if not isiterable(n): n = {mx}
     index = DICE_LIST.index(sides)
-    if rolled in n and index != len(DICE_LIST)-1:
+    if rolled in n and index != len(DICE_LIST)-1: # Nuclear : higher face on reroll 
         rolled += nuclear(s, DICE_LIST[index + 1], n, False)[0]
     return rolled, sum(DICE_LIST[index:]) \
-        if first else rolled, None
+        if first else rolled, None # ^ Compute max here as well
 
 
 SOURCE = {
@@ -168,8 +188,9 @@ class Dice:
         self.average_level = 0 # TODO: not implemented
     
 
-    def set_param(self, param):
-        """Set a diceroll parameter among [ @!l#xp^v?~ ]."""
+    def set_param(self, param):             
+        """Set a diceroll parameter among [ @!^vl#xpn~? ]."""
+        # One function call can set multiple params
         if isiterable(param) or \
             (isinstance(param, str) and len(param) > 1):
                 for i in param: self.set_param(i)
@@ -177,19 +198,19 @@ class Dice:
         match param:
             case "@": self.advantage += 1
             case "!": self.disadvantage += 1
-            case "l": self.list = True
-            case "#": self.verbose_level += 1
-            case "x": self.exploding = True
-            case "p": self.penetrating = True
-            case "n": self.nuclear = True
             case "^":
                 self.keep_high = self.keep_high or 0
                 self.keep_high += 1
             case "v":
                 self.keep_low = self.keep_low or 0
                 self.keep_low += 1
-            case "?": self.sides = "?"
+            case "l": self.list = True
+            case "#": self.verbose_level += 1
+            case "x": self.exploding = True
+            case "p": self.penetrating = True
+            case "n": self.nuclear = True
             case "~": self.average_level += 1
+            case "?": self.sides = "?"
             case _: raise ValueError(f"'{param}' not a dice parameter.")
 
 
@@ -232,35 +253,54 @@ class Dice:
     def final_param(self) -> bool:
         """Finalise dice when all parameters are set."""
         self.adv = self.advantage - self.disadvantage
-        if self.adv:
-            self.sides = self.sides or 20
-            self.amount = self.amount or abs(self.adv)+1
+        if self.adv: # Adv or dAdv solely based on @ and !
+            self.sides = self.sides or 20 # Default to 20
+            self.amount = self.amount or abs(self.adv)+1 # 1 Adv = 2dX
             if self.adv > 0 and self.keep_high is None:
-                self.keep_high = 1
+                self.keep_high = 1 # Only keep one
             elif self.keep_low is None: self.keep_low = 1
+        # Without advantage, d20 defaults to 1d20
         elif self.amount is None: self.amount = 1
+        # Cannot do anything with dice if there is no side parameter
         if self.sides is None: return False
         return True
 
 
     def translate(self) -> str:
         """Translate the parameters into a string."""
+        # First function is the actual roll function
         if self.sides == "?": output = "scuff()"
         elif self.penetrating:
-            p = surround(self.penetrating, ",flatten") \
-                if not isinstance(self.penetrating, bool) else ",None"
+            # If p is provided, make it a flattened set
+            p = ",None" if isinstance(self.penetrating, bool) \
+                else surround(self.penetrating, ",flatten")
             output = surround(self.sides + p, "penetrating")
         elif self.nuclear:
-            n = surround(self.nuclear, ",flatten") \
-                if not isinstance(self.nuclear, bool) else ",None"
+            # If n is provided, make it a flattened set
+            n = ",None" if isinstance(self.nuclear, bool) \
+                else surround(self.nuclear, ",flatten")
             output = surround(self.sides + n, "nuclear")
+        # Normal dice rolling is also allowed
         else: output = surround(self.sides, "roll")
-        x = surround(self.exploding, ",flatten") if self.exploding else ",None"
+
+        # x is either None, True, or a set to be flattened
+        if not self.exploding: x = ",None"
+        elif self.exploding is True: x = ",True"
+        elif isinstance(self.exploding, set): 
+            x = surround(self.exploding, ",flatten")
+        else: raise TypeError(f"Cannot make sense of x '{self.exploding}")
+        # r and rr are always Noe or sets, so this will suffice
         r = surround(self.r, ",flatten") if self.r else ",None"
         rr = surround(self.rr, ",flatten") if self.rr else ""
+        # ",None" and "" to ensure output + x + r + rr is coherent
         output = surround([output + x + r + rr], "anyroll")
+
+        # Output every low-level roll
         if self.verbose_level >= 2 - self.list: output += "#"
+        # Iterate with number of sides
         output = surround([output, str(self.amount)], "iter")
+
+        # Advantage and disadvantage part
         keep_args = [] ; keep_str = "keep"
         if self.keep_high:
             keep_args += [str(self.keep_high)]
@@ -268,10 +308,13 @@ class Dice:
         if self.keep_low:
             keep_args += [str(self.keep_low)]
             keep_str += "low"
+        # Function keephigh|low works in this very order
+        # High to keep, Low to keep, From what to keep
         if keep_args: output = surround(
             keep_args + [output], keep_str)
+        # If not asking for a list of results, wrap in summation
         if not self.list: output = surround(output, "sum")
-        if self.verbose_level >= 1: output += "#"
+        if self.verbose_level >= 1: output += "#" # Output the final result
         return output
     
 
@@ -305,6 +348,7 @@ def analyse_dice(txt: str, i: int, scuff: bool = False) -> Dice:
     """Analyze a dice roll expression."""
     if txt[i] != "d": return None # Only start from 'd'
     dice = Dice(i, i) # Start the instance
+    # Here, dice is modified by reference
     if not dice_start(dice, txt, i): return None
     if not dice_end(dice, txt, i, scuff): return None
     if not dice.final_param(): return None
@@ -312,55 +356,81 @@ def analyse_dice(txt: str, i: int, scuff: bool = False) -> Dice:
     
 
 def dice_start(dice: Dice, txt: str, i: int) -> bool:
-    if i == 0: return True
+    """Analyse the pre-d part of dice."""
+    if i == 0: return True # There can be nothing
+
+    # Or an 'after' symbol like ²!~#
     if txt[i-1] in _AFTER_STR:
+        # In that case, update dice.amount...
         if dice.amount is None:
             dice.amount = txt[i-1]
         else: dice.amount = txt[i-1] + dice.amount
+        # ...and iterate backwards to search further
         return dice_start(dice, txt, i-1)
-    if txt[i-1].isalpha(): return False
+    
+    # If it's alphabetic, cannot happen
+    # Constants must be escaped by a ')'
+    if txt[i-1].isalpha() and txt[i-1] not in "πτ": return False
+    # Acceptable values are either par, func, num or other (consts)
+    # But all other Analysis types have already been exhausted
     value = dice_value(txt, i-1, ")")
     if value:
-        if dice.amount is None:
-            dice.amount = value.content
+        if dice.amount is None: dice.amount = value.content
+        # If dice.amount already contains 'AFTER' symbols
         else: dice.amount = value.content + dice.amount
         dice.start = value.start
     return True
 
 
 def dice_end(dice: Dice, txt: str, i: int, scuff: bool = False) -> bool:
+    """Analyse the post-d part of dice."""
+    # Terminate analysis at the end of string
+    # If dice.sides is not set and can't be defaulted,
+    # it will be caught in final_param()
     if i >= len(txt)-1: return True
-    # Test if is a dice arg
+
+    # Test if is a dice arg '@!^vl#xpn~?'
     if txt[i+1] in _DICE_ARGS or \
         (scuff and txt[i+1] == "?"):
-        if dice.sides is None or dice.sides == "?" :
+        # No more params after dice.sides is set
+        if dice.sides is None:
             dice.set_param(txt[i+1])
             dice.end = i+1
             return dice_end(dice, txt, i+1, scuff)
-        if not isaddon(txt, i+1):
-            if txt[i+1] in _AFTER_STR:
-                dice.end = i+1
-                return dice_end(dice, txt, i+1, scuff)
-            return False
-    # Test if is addon after sides_number
+        # If it's neither an addon or an 'AFTER' symbol,
+        # then it's a misplaced parameter -> terminate
+        if not isaddon(txt, i+1) and \
+            not txt[i+1] in _AFTER_STR:
+                return False
+    
+    # Test if it's part of an addon after dice.sides
     addon = isaddon(txt, i+1)
     if addon:
-        if dice.sides is None and \
-            not dice.advantage and \
-            not dice.disadvantage:
-                return False
+        # Addons only allowed if dice.sides is set,
+        # Unless we're taking default @! sides of 20
+        if dice.sides is None:
+            if dice.advantage - dice.disadvantage != 0:
+                dice.sides = 20
+            else: return False
+        # If addon can have a value argument, look for it
         if i+len(addon) <= len(txt)-2:
             nxt = dice_value(txt, i+len(addon)+1, "(", False)
         else: nxt = None
+        # Take it into account and update dice instance
         dice.set_addon(addon, nxt)
         if nxt: dice.end = nxt.end
         else: dice.end = i+len(addon)
         return dice_end(dice, txt, dice.end, scuff)
-    # No function name under any circumstance
-    if txt[i+1].isalpha(): return False
+    
+    # Like dice_start, function names need to be escaped by '('
+    # For example, d(func()) and not dfunc()
+    if txt[i+1].isalpha() and txt[i+1] not in "πτ": return False
     # Value, only first time then exit
     value = dice_value(txt, i+1, "(", False)
     if value:
+        # If dice.sides, means we have bad delimitation
+        # Since we allow d4(pi) => (d4)*pi,
+        # Let's make it so d4π => d4*π
         if dice.sides is not None: return True
         dice.sides = value.content
         dice.end = value.end
@@ -369,18 +439,25 @@ def dice_end(dice: Dice, txt: str, i: int, scuff: bool = False) -> bool:
 
 
 def dice_value(txt, i, parenth: str = None, check_func: bool = True):
-    if txt[i] in "πτ" or \
-        is_num(txt[i]) or \
-        txt[i] == parenth:
-            section = analyse(txt, i)
-            if check_func: section = check_for_func(txt, section)
-            return section
+    """Resolve a value to inject into a dice instance."""
+    # Accept either constants, numbers, or parrenth
+    if txt[i] in "πτ" or is_num(txt[i]) or txt[i] == parenth:
+        section = analyse(txt, i)
+        if check_func: section = check_for_func(txt, section)
+
+        if parenth == "(": # If we're going forwards
+            i = section.end + 1 # We also check for 'AFTER' symbols
+            while i < len(txt) and txt[i] in _AFTER_STR:
+                section.end += 1 ; section.content += txt[i] ; i += 1
+        # ^ For dice_start, that logic already exists in the function
+        return section
     return None
 
 
 def isaddon(txt, i):
-    for v1 in _DICE_ADDONS:
-        for v2 in v1:
+    """Check if txt[i] (and following) is part of a dice addon."""
+    for v1 in _DICE_ADDONS: # For every type of addon
+        for v2 in v1: # For each of its aliases
             if txt[i:i+len(v2)] == v2:
                 return v2
     return None

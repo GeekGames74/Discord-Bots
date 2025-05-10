@@ -99,6 +99,7 @@ class Reactech:
                 "user.send(*args)"
         await self.reactech(ctx, emoji, True, -1, 3600, None, func, txt)
 
+
     async def reactech_valid(self, ctx: CTX, txt: str) -> None:
         """reactech_channel with auto ✅."""
         await self.reactech_channel(ctx, "✅", txt)
@@ -131,13 +132,11 @@ class Reactech:
                         and user != self.bot.user # Reaction does not orriginate from the bot
                         and (not cond # And, if specified, checking another condition
                         or eval(cond, globals(), locals()|{"ctx": ctx, "emojis": emojis})))
-            # Default unzip, these variables can be used in 'method'
             try: reaction, user = await self.bot.wait_for("reaction_add", check = check, timeout = timeout)
             except TimeoutError:
                 if default is not None: return default
                 else: return emojis[0] # Default is the first emoji if not specified
-            except Exception as e:
-                raise e
+            except Exception as e: raise e
             else: return reaction.emoji
 
 
@@ -149,11 +148,12 @@ class Reactech:
 
 
     async def react_confirm(self, ctx: CTX, false: str, true: str,
-            txt: str, default: bool = False, timeout: int = 300) -> bool:
+            msg: str, default: bool = False, timeout: int = 300) -> bool:
         """Creates a basic yes/no condition for the user to react.""" # TODO: Condition
-        msg = await ctx.send(txt)
-        choice = await self.user_input(msg, false+true, "default", timeout)
-        if choice == "default": return default
+        if isinstance(msg, DSC.Message): message = msg # Do not send a text but use pre-existing message
+        else: message = await ctx.send(msg) # Or specify a text to send (in ctx)
+        choice = await self.user_input(message, false+true, "default", timeout)
+        if choice == "default": return default # We expect a boolean output for this function, not string
         return choice == true
 
 

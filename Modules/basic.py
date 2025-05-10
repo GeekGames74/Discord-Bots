@@ -65,14 +65,12 @@ def flatten(iter: list, new_iter: list = None) -> list:
     """Flatten a list of lists (of lists...)"""
     if new_iter is None:
         new_iter = set() if isinstance(iter, set) else []
-    if isiterable(iter):
-        for i in iter:
-            flatten(i, new_iter)
-    elif isinstance(new_iter, set):
-        new_iter.add(iter)
-    else: new_iter.append(iter)
+    if isiterable(iter): # If it's an iterable
+        for i in iter: flatten(i, new_iter) # Apply recursively
+    elif isinstance(new_iter, set): # The method to add to new_iter changes :
+        new_iter.add(iter) # If it's a set, it's set.add()
+    else: new_iter.append(iter) # On lists, it's list.append()
     return new_iter
-
 
 
 def mixmatch(part1: list, part2: list, spacing: list = _SPACING,
@@ -90,19 +88,17 @@ def mixmatch(part1: list, part2: list, spacing: list = _SPACING,
     for p1 in part1:
         for p2 in part2:
             for s in spacing:
-                if not p1 or not p2: s= "" # If either is empty, disable spacing ----------+
-                names.append(f"{p1}{s}{p2}")                                             # |
-                if not p1 or not p2: break # And only apply the loop once   <--------------+
+                if not p1 or not p2: s= "" # If either is empty, disable spacing -----+
+                names.append(f"{p1}{s}{p2}") # Add as normal                        # |
+                if not p1 or not p2: break # And only apply the loop once   <---------+
                 # Append name in 'wrong order' if implementation hasn't disallowed it
                 if not keeporder: names.append(f"{p2}{s}{p1}")
     return [n for n in names if n and n not in remove]
 
 
-
 def remove_punct(txt: str) -> str:
     """Remove punctuation from a string"""
-    for p in _PUNCT:
-        txt = txt.replace(p, "")
+    for p in _PUNCT: txt = txt.replace(p, "")
     return txt
 
 
@@ -115,7 +111,6 @@ def plural(obj: any, _n = "s", _0 = "s", _1 = "", _p = "s") -> any:
         case _: return _n if n<0 else _p
     
 
-
 def path_from_root(txt: str = "") -> str:
     """
     Return absolute path to the project root directory.
@@ -127,31 +122,27 @@ def path_from_root(txt: str = "") -> str:
     return _ROOT
 
 
-
 def correspond(needle: str, haystack: set()) -> str:
     """
     Return the first element in haystack that matches needle.
     First by exact match, then prefix, then inclusion.
     """
     haystack = makeiterable(haystack, "set")
-    if needle in haystack:
-        return needle
-    for h in haystack:
-        if h.startswith(needle):
-            return h
-    # Inclusion match
-    for h in haystack:
-        if needle in h:
-            return h
-    # Nothing
-    return None
+    if needle in haystack: return needle # Exact match
+    for h in haystack: # Prefix match
+        if h.startswith(needle): return h
+    for h in haystack: # Inclusion match
+        if needle in h: return h
+    return None # Nothing
 
 
 def surround(txt, prefix) -> str:
-    """Return string enclosed by (), optionally with prefix."""
+    """
+    Return string enclosed by (), optionally with prefix.
+    If txt is iterable, sep them with ','
+    """
     if isiterable(txt): txt = ','.join(txt)
     return f"{prefix}({txt})" if prefix else f"({txt})"
-
 
 
 def yes_no(txt: str) -> bool:

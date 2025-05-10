@@ -16,12 +16,12 @@ from discord.ext import commands as CMDS
 from discord.ext.commands.bot import Bot
 from discord.ext.commands.context import Context as CTX
 
-from random import choices, randint
 from asyncio import wait_for, to_thread, TimeoutError
+from time import time
 
 from Modules.reactech import Reactech
 from Modules.logic import main as main_math
-from Modules.logic import get_args, is_num, ensure_parenthesis
+from Modules.logic import get_args, is_num, ensure_parenthesis, _ARG_TIMEOUT
 from Modules.basic import isiterable, mixmatch, plural
 from Modules.dice import SOURCE, scuff, translate_dice, allow_scuff
 
@@ -30,9 +30,6 @@ async def setup(bot: Bot):
     await bot.add_cog(Math(bot))
     await bot.add_cog(Automath(bot))
     await bot.add_cog(Roll(bot))
-
-
-_ARG_TIMEOUT = 5
 
 
 
@@ -80,30 +77,38 @@ def get_comm(txt: str) -> (str, str):
 async def evaluate_args(args: list, dice: bool = False,
         is_scuff: bool = False, noresolve: bool = False) -> tuple:
     """Evaluate the given args using main_math."""
-    results = [] ; comms = [] ; stack = [] ; errors = []
+    results = [] ; comms = [] ; stack = [] ; errors = [] ; start = time()
     for arg in args:
-        expr, comm = get_comm(arg)
-        if not expr: continue
-        comms.append(comm)
-        try: result, had_dice = await wait_for(to_thread(solver,
-                expr, stack, dice, is_scuff, noresolve), _ARG_TIMEOUT)
+        try:
+            expr, comm = get_comm(arg)
+            if not expr: continue
+            comms.append(comm)
+            if time() - start > _ARG_TIMEOUT: raise TimeoutError()
+            result, had_dice = await wait_for(to_thread(solver,
+                    expr, stack, start, dice, is_scuff, noresolve), _ARG_TIMEOUT)
         except TimeoutError as e:
             results.append("TimeoutError")
             errors.append("'TimeoutError': Evaluation has timed out " +
                 f"(maximum runtime is set to {_ARG_TIMEOUT} second{plural(_ARG_TIMEOUT)})")
             if noresolve: stack.append(errors[-1])
+            break
         except Exception as e:
             results.append(e.__class__.__name__)
             errors.append(f"'{e.__class__.__name__}': {e}")
             if noresolve: stack.append(errors[-1])
         else:
-            results.append(result)
+            try: str(result) + str(stack)
+            except ValueError:
+                results.append("ValueError")
+                errors.append("'ValueError': Number is too large to display !")
+                if noresolve: stack.append(errors[-1])
+            else: results.append(result)
     try: had_dice
     except NameError: had_dice = False
     return results, comms, stack, errors, had_dice
 
 
-def solver(expr: str, stack: list, dice: bool = False,
+def solver(expr: str, stack: list, start: float, dice: bool = False,
         is_scuff: bool = False, noresolve: bool = False):
     if dice:
         expr, had_dice = translate_dice(expr, is_scuff)
@@ -113,7 +118,7 @@ def solver(expr: str, stack: list, dice: bool = False,
         else: source = None
     else:
         had_dice = False ; source = None
-    result = main_math(expr, stack, source, noresolve)[0]
+    result = main_math(expr, stack, source, start, noresolve)[0]
     return result, had_dice
 
 
@@ -136,16 +141,16 @@ def format_lines(results: list, comms: list, stack: list) -> list:
         isinstance(results[0], (int, float))):
             results = [ensure_size(i) for i in results]
     else: results = [ensure_size(results[0])]
-    stack = ensure_size(stack, 100) if stack else ""
+    stack = ensure_size(stack, 256) if stack else ""
     output = [results[i]+comms[i] for i in range(len(results))]
     lines = [output[0]] # Create output lines to send
     for i in output[1:]:
         predicted = len(lines[-1]) + len(i)
-        if predicted <= 50: lines[-1] += ", " + i
+        if predicted <= 100: lines[-1] += ", " + i
         else: lines.append(i)
     if stack: # Final one for the stack
         predicted = len(lines[-1]) + len(stack)
-        if predicted <= 50: lines[-1] += " \# " + stack
+        if predicted <= 100: lines[-1] += " \# " + stack
         else: lines.append("\# " + stack)
     return lines
 
@@ -176,6 +181,10 @@ async def main(self: CMDS.Cog, ctx: CTX, txt: str,
     # Auto filter
     if auto and (errors or txt.removeprefix("+") \
         .startswith(str(results[0]).lower())): return
+    # Avoid ValueErrors because number too long
+    for i in range(len(stack)):
+        try: str(stack[i])
+        except ValueError: stack[i] = "[...]"
     # Send the output lines and prepare the error log
     lines = format_lines(results, comms, stack)
     if not auto: await ctx.message.reply("\n".join(lines), mention_author=False)

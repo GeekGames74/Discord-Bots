@@ -162,8 +162,8 @@ def get_active_bots():
 
 
 def main(to_launch: set) -> None:
-    if not to_launch:
-        raise TypeError("No configs given to resolve and launch")
+    """ Launch all requested bots one after the other using async."""
+    if not to_launch: raise TypeError("No configs given to resolve and launch")
     async def asyncmain(schedule) -> None:
         await gather(*schedule)
     schedule = [build_bot(f) for f in to_launch]

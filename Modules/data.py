@@ -42,7 +42,7 @@ def with_data(source: str, *data: any):
             elif source.endswith(".json"):
                 local_data = data_JSON(source, *data)
             else: raise NotImplementedError(f"Cannot get data from {source}")
-            kwargs.update(local_data)
+            kwargs.update(local_data) # Insert data into kwargs
             result = func(*args, **kwargs)
             return result
         return wrapper
@@ -98,7 +98,7 @@ def data_JSON(file: str, data: tuple = None) -> dict:
     return content
 
 
-# write to json
+# Write to json
 def write_JSON(file: str, data: any) -> None:
     """Write data (no json-ified) to file using json."""
     path = path_from_root(file)

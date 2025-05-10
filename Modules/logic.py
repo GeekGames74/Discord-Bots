@@ -10,6 +10,8 @@ Logic module for calculation, randomness, and boolean operations.
 
 
 
+from asyncio import TimeoutError
+from time import time
 from Modules.data import data_JSON
 from Modules.basic import isiterable, flatten
 import math ; import random
@@ -20,6 +22,9 @@ import math ; import random
 # GLOBALS
 ##################################################
 
+
+
+_ARG_TIMEOUT = 5
 
 
 # numbers (as str) 0-9 (because '²'.isdigit() return True)
@@ -80,7 +85,7 @@ def set_globals() -> None:
 set_globals()
 
 _AFTER_STR = "".join(_AFTER.keys())
-_TYPES = {"comma", "other", "symbol", "num", "alpha", "par", "func"}
+_TYPES = {"comma", "other", "symbol", "num", "alpha", "par", "func"} # Analysis types
 
 
 
@@ -283,14 +288,16 @@ def implicit_multiplication(txt: str) -> str:
 def implicit_zero(txt: str) -> str:
     """Place zero before vacant '.'"""
     index = 0
-    while index < len(txt):
-        if txt[index] == '.':
-            if index == len(txt) - 1 or \
-                    txt[index+1] not in nums() :
+    while True:
+        index = txt.find('.', index)
+        if index == -1: break
+        # Check after then before to avoid moving indices
+        if index == len(txt) - 1 or \
+            txt[index+1] not in nums() :
                 # 123. --> 123.0
                 txt = txt[:index] + '.0' + txt[index+1:]
-            if index == 0 or \
-                    txt[index-1] not in nums():
+        if index == 0 or \
+            txt[index-1] not in nums():
                 # .123 --> 0.123
                 txt = txt[:index] + '0.' + txt[index+1:]
         index += 1
@@ -323,17 +330,18 @@ def place_after(txt: str, symbol: str, func: str) -> str:
             if cursor <= 0 or txt[cursor-1] == "(": # even if it ends here
                 raise SyntaxError(f"Symbol '{symbol}' was misplaced")
             # Next batch of string to process
-            section = check_for_func(txt, analyse(txt, cursor - 1))
+            section = check_for_func(txt, analyse(txt, cursor - 1)) # Forced backwards
             content = section.content + content # Concatenate content
+            # Only 'par','func' and 'num' can be affected by an 'AFTER' symbol
             if section.type in {"par", "func", "num"}: break
-            cursor = section.start # Loop again
+            cursor = section.start # Loop again, find the earliest affected element
         # (10/3)~! --> factorial(round(10/3))
         txt = txt[:section.start] + func + "(" + content + ")" + txt[index+1:]
     return txt
 
 
 def place_mid(txt: str, symbol: str, func: str) -> str:
-    """Replace symbol by its function, affecting the previous term."""
+    """Replace symbol by its function, affecting the previous and next term."""
     while symbol in txt:
         index = txt.index(symbol)
         # If symbol at start or end
@@ -363,7 +371,6 @@ def place_mid(txt: str, symbol: str, func: str) -> str:
 
 class Holder:
     """Holds the static functions for the calculator"""
-
     @staticmethod
     def abs_(x): return abs(x)
     @staticmethod
@@ -382,8 +389,8 @@ class Holder:
     def extract_(*x): return x if len(x) > 1 else x[0]
     @staticmethod
     def factorial_(x):
-        if x > 1500: raise ValueError(
-            "factorial() argument should not exceed 1500")
+        if x > 1000000: raise OverflowError(
+            "factorial() argument should not exceed 1000000")
         return math.factorial(x)
     @staticmethod
     def falsehold_(): return False
@@ -500,11 +507,14 @@ class Holder:
 
 
 
-def resolve(txt: str, stack: list = [], source: dict = None) -> any:
+def resolve(txt: str, stack: list = [], source: dict = None, start: float = None) -> any:
     """
     Resolve the nested expression recursively.
     Basically a whole ride to avoid 'eval()'
     """
+    if start is None: start = time()
+    elif time() - start >= _ARG_TIMEOUT:
+        raise TimeoutError("Execution timed out.")
     if not txt: return None
     # Source must be {'name': func}
     if source is None: source = {}
@@ -535,13 +545,13 @@ def resolve(txt: str, stack: list = [], source: dict = None) -> any:
         else: raise NameError(f"Function '{name}' is not recognized.")
     else: # Arguments
         args = get_args(txt)
-        return [resolve(arg, stack, source) for arg in args]
+        return [resolve(arg, stack, source, start) for arg in args]
 
     # Iteration logic already uses resolve
     if name not in _NO_RESOLVE and \
             name not in source:
         # Resolve arguments
-        arguments = [resolve(arg, stack, source) for arg in args]
+        arguments = [resolve(arg, stack, source, start) for arg in args]
         # Cull None returns
         arguments = [arg for arg in arguments if arg not in [None, ""]]
         # Remove iterables
@@ -550,7 +560,7 @@ def resolve(txt: str, stack: list = [], source: dict = None) -> any:
                 arguments = arguments[0]
     else:
         args = [arg for arg in args if arg not in [None, ""]]
-        arguments = [(stack, source)] + args
+        arguments = [(stack, source, start)] + args
 
     # Call the function with the arguments
     try: result = func(*arguments)
@@ -599,25 +609,36 @@ def get_args(txt: str, comments: str = None) -> list:
 
 
 def main(txt: str, stack: list = None, source: dict = None,
-        noresolve: bool = False) -> any:
+        start: float = None, noresolve: bool = False) -> any:
     """Resolve and output the given expression"""
     if stack is None: stack = []
+    # Sanitize expression and ensure it is properly formatted
     cleanup_ = cleanup(txt)
     if noresolve: stack.append(cleanup_)
+    # If there is nothing to evaluate
     if not cleanup_: raise SyntaxError("No valid expression to evaluate")
+    # Replace low-level symbols by their primary symbol
     symbols_ = replace_simple(cleanup_, _SYMBOLS)
     if noresolve and stack[-1] != symbols_: stack.append(symbols_)
+    # Replace low-level func aliases by their primary name
     aliases_ = replace_targeted(symbols_, _NAMES, False)
     if noresolve and stack[-1] != aliases_: stack.append(aliases_)
+    # Replace constants by their function
     constants_ = replace_targeted(aliases_, _CONSTANTS, True)
     if noresolve and stack[-1] != constants_: stack.append(constants_)
+    # Place asterixes on implicit multiplication )*(
+    # Note that some have already been spotted using replace_targeted()
     multiply_ = implicit_multiplication(constants_)
     if noresolve and stack[-1] != multiply_: stack.append(multiply_)
+    # Implicit 0 in _.123 or 123._
     implicit_ = implicit_zero(multiply_)
     if noresolve and stack[-1] != implicit_: stack.append(implicit_)
+    # Replace top-level symbols by their function
+    # In two parts : 'AFTER' symbols (!²#~ etc), then others by priority
     functions_ = place_functions(implicit_)
     if noresolve and stack[-1] != functions_: stack.append(functions_)
-    result = None if noresolve else resolve(functions_, stack, source)
+    # And now, actually resolve the expression recursively
+    result = None if noresolve else resolve(functions_, stack, source, start)
     return result, stack
 
 
