@@ -170,8 +170,7 @@ def main(to_launch: set) -> None:
     """Launch all requested bots one after the other using async."""
     if not to_launch: raise TypeError("No configs given to resolve and launch")
     async def asyncmain(schedule) -> None:
-        try: await gather(*schedule)
-        except Exception as e: print(e)
+        await gather(*schedule)
     schedule = [build_bot(f) for f in to_launch]
     try: asyncrun(asyncmain(schedule))
     except KeyboardInterrupt: print("Aborted script (KeyboardInterrupt)")
