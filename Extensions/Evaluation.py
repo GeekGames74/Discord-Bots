@@ -21,7 +21,7 @@ from time import time
 
 from Modules.reactech import Reactech
 from Modules.logic import main as main_math
-from Modules.logic import get_args, is_num, ensure_parenthesis, _ARG_TIMEOUT
+from Modules.logic import get_args, is_num, _ARG_TIMEOUT, noresolve_stack
 from Modules.basic import isiterable, mixmatch, plural
 from Modules.dice import SOURCE, scuff, translate_dice, allow_scuff
 
@@ -80,12 +80,14 @@ async def evaluate_args(args: list, dice: bool = False,
     results = [] ; comms = [] ; stack = [] ; errors = [] ; start = time()
     for arg in args:
         try:
+            noresolve_stack(stack, arg, "Initial", noresolve)
             expr, comm = get_comm(arg)
             if not expr: continue
             comms.append(comm)
+            noresolve_stack(stack, expr, "Commented", noresolve and comm)
             if time() - start > _ARG_TIMEOUT: raise TimeoutError()
             result, had_dice = await wait_for(to_thread(solver,
-                    expr, stack, start, dice, is_scuff, noresolve), _ARG_TIMEOUT)
+                expr, stack, start, dice, is_scuff, noresolve), _ARG_TIMEOUT)
         except TimeoutError as e:
             results.append("TimeoutError")
             errors.append("'TimeoutError': Evaluation has timed out " +
@@ -111,8 +113,9 @@ async def evaluate_args(args: list, dice: bool = False,
 def solver(expr: str, stack: list, start: float, dice: bool = False,
         is_scuff: bool = False, noresolve: bool = False):
     if dice:
-        expr, had_dice = translate_dice(expr, is_scuff)
+        expr, had_dice = translate_dice(expr, is_scuff, stack if noresolve else None)
         if had_dice:
+            noresolve_stack(stack, expr, "Translated", noresolve)
             source = SOURCE.copy() if dice else {}
             if is_scuff: source["scuff"] = scuff
         else: source = None
@@ -162,7 +165,6 @@ async def main(self: CMDS.Cog, ctx: CTX, txt: str,
     if msg.reference and (not auto or \
             msg.reference.resolved.author.bot):
         txt = ans(msg, txt)
-    txt = ensure_parenthesis(txt)
     args = format_msg(txt)
     dice = bool(self.bot.get_cog("Roll"))
     scuff = allow_scuff(ctx)
@@ -179,8 +181,8 @@ async def main(self: CMDS.Cog, ctx: CTX, txt: str,
         if not auto: return await self.Reactech.reactech_user(ctx, "⚠️",
             "No expression to evaluate (was it commented out?)")
     # Auto filter
-    if auto and (errors or txt.removeprefix("+") \
-        .startswith(str(results[0]).lower())): return
+    if auto and (errors or txt.removeprefix("+") ==
+        str(results[0]).lower()): return
     # Avoid ValueErrors because number too long
     for i in range(len(stack)):
         try: str(stack[i])
@@ -243,7 +245,7 @@ class Automath(CMDS.Cog):
         if msg.author.bot: return # And not sent by a bot
         if msg.mentions or msg.role_mentions: return # No mentions
         if len(msg.content) > 100: return # Don't treat big messages
-        if len(msg.content) <= 1: return # Don't treat big messages
+        if len(msg.content) <= 1: return # Don't treat small messages
         await main(self, msg, msg.content, True)
 
 

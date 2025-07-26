@@ -44,10 +44,10 @@ _PLUGINS = {
     "cogs": ["c", "cog", "cogs"],
     "exts": ["e", "x", "xt", "xts", "ext", "exts", "extension", "extensions"],
     "plugins": ["plugin", "plugins"],
-    "list": ["l", "list", "show", "display"],
-    "load":  ["a", "load", "add", "append"],
-    "reload": ["r", "rl", "reload", "reset", "restart"],
-    "unload": ["u", "remove", "unload"]
+    "list": ["ls", "list", "show", "display"],
+    "load":  ["l", "ld", "a", "load", "add", "append"],
+    "reload": ["r", "rl", "reload", "reset"],
+    "unload": ["u", "ul", "rm", "remove", "unload"]
 }
 
 _FEEDBACK = {
@@ -72,7 +72,7 @@ def detect_exts(plugins: tuple) -> tuple:
         """Detects the list of exts to access. Returns {exts}, {not_exts}."""
         regex = compile(f"^[A-Z].*\.py$") # Regex for ext filename
         exts = set() ; not_exts = set() # Sets to avoid duplicates
-        plugins = set([remove_punct(i.capitalize()) for i in plugins])
+        plugins = set([removepunct(i.capitalize()) for i in plugins])
         all_exts = set([i.removesuffix(".py") for i in listdir(path.dirname(__file__)) if regex.match(i)])
         if not plugins or least_one(_PLUGINS["all"], plugins):
             exts = all_exts.copy() ; not_exts.add(_PLUGINS["all"][0])
@@ -336,8 +336,8 @@ class Plugins_plus(CMDS.Cog):
     
 
 
-    @CMDS.command(name = "listplugins", aliases = mixmatch(_PLUGINS["list"][1:],
-            _PLUGINS["plugins"], keeporder = True, remove = "listplugins"))
+    @CMDS.command(name = "listplugins", aliases = mixmatch(_PLUGINS["list"],
+            _PLUGINS["plugins"] + ["all"], keeporder = True, remove = "listplugins"))
     async def listplugins(self, ctx: CTX, *plugins: str) -> str:
         """Lists plugins in the current bot instance."""
         return await call_plugins(self, ctx, "list", plugins)
@@ -360,7 +360,7 @@ class Plugins_shorthand(CMDS.Cog):
 
 
 
-    @CMDS.command(name = "loadcogs", aliases = mixmatch(_PLUGINS["load"][1:],
+    @CMDS.command(name = "loadcogs", aliases = mixmatch(_PLUGINS["load"],
             _PLUGINS["cogs"][1:], keeporder = True, remove = "loadcogs"))
     async def loadcogs(self, ctx: CTX) -> str:
         """Loads all cogs to the current bot instance."""
@@ -368,7 +368,7 @@ class Plugins_shorthand(CMDS.Cog):
 
 
 
-    @CMDS.command(name = "loadexts", aliases = mixmatch(_PLUGINS["load"][1:],
+    @CMDS.command(name = "loadexts", aliases = mixmatch(_PLUGINS["load"],
             _PLUGINS["exts"][2:], keeporder = True, remove = "loadexts"))
     async def loadexts(self, ctx: CTX) -> str:
         """Loads all exts to the current bot instance."""
@@ -376,7 +376,7 @@ class Plugins_shorthand(CMDS.Cog):
 
 
 
-    @CMDS.command(name = "unloadcogs", aliases = mixmatch(_PLUGINS["unload"][1:],
+    @CMDS.command(name = "unloadcogs", aliases = mixmatch(_PLUGINS["unload"],
             _PLUGINS["cogs"][1:], keeporder = True, remove = "unloadcogs"))
     async def unloadcogs(self, ctx: CTX) -> str:
         """Unloads all cogs from the current bot instance."""
@@ -384,7 +384,7 @@ class Plugins_shorthand(CMDS.Cog):
 
 
 
-    @CMDS.command(name = "unloadexts", aliases = mixmatch(_PLUGINS["unload"][1:],
+    @CMDS.command(name = "unloadexts", aliases = mixmatch(_PLUGINS["unload"],
             _PLUGINS["exts"][2:], keeporder = True, remove = "unloadexts"))
     async def unloadexts(self, ctx: CTX) -> str:
         """Unloads all exts from the current bot instance."""
@@ -392,7 +392,7 @@ class Plugins_shorthand(CMDS.Cog):
 
 
 
-    @CMDS.command(name = "listcogs", aliases = mixmatch(_PLUGINS["list"][1:],
+    @CMDS.command(name = "listcogs", aliases = mixmatch(_PLUGINS["list"],
             _PLUGINS["cogs"][1:], keeporder = True, remove = "listcogs"))
     async def unloadcogs(self, ctx: CTX) -> str:
         """Lists all cogs in the current bot instance."""
@@ -400,7 +400,7 @@ class Plugins_shorthand(CMDS.Cog):
 
 
 
-    @CMDS.command(name = "listexts", aliases = mixmatch(_PLUGINS["list"][1:],
+    @CMDS.command(name = "listexts", aliases = mixmatch(_PLUGINS["list"],
             _PLUGINS["exts"][2:], keeporder = True, remove = "listexts"))
     async def unloadexts(self, ctx: CTX) -> str:
         """Lists all exts in the current bot instance."""

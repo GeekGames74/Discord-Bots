@@ -14,9 +14,8 @@ Specifically targeted towards Evaluation.py
 from discord.ext.commands.context import Context as CTX
 
 from random import choices, randint
-from Modules.logic import is_num
-from Modules.logic import _AFTER_STR, resolve
-from Modules.logic import _REPLACE, replace_simple
+from Modules.logic import is_num, _REPLACE, replace_simple
+from Modules.logic import _AFTER_STR, resolve, noresolve_stack
 from Modules.logic import analyse, check_for_func
 from Modules.basic import isiterable, surround
 
@@ -29,7 +28,7 @@ from Modules.basic import isiterable, surround
 
 
 # Acceptable args on _d<here>_
-_DICE_ARGS = set("@!^vl#xpn~")
+_DICE_ARGS = set("@!^vl#xpn~-")
 # Acceptable args on _d_<here>
 _DICE_ADDONS = [
     ["kh", "^"],
@@ -182,14 +181,14 @@ class Dice:
         self.advantage = 0     ; self.disadvantage = 0
         self.list = False      ; self.verbose_level = 0
         self.exploding = False ; self.penetrating = False
-        self.nuclear = False   ; 
+        self.nuclear = False   ; self.negative = False
         self.keep_high = None  ; self.keep_low = None
         self.r = set()         ; self.rr = set()
         self.average_level = 0 # TODO: not implemented
     
 
     def set_param(self, param):             
-        """Set a diceroll parameter among [ @!^vl#xpn~? ]."""
+        """Set a diceroll parameter among [ @!^vl#xpn~?- ]."""
         # One function call can set multiple params
         if isiterable(param) or \
             (isinstance(param, str) and len(param) > 1):
@@ -209,6 +208,7 @@ class Dice:
             case "x": self.exploding = True
             case "p": self.penetrating = True
             case "n": self.nuclear = True
+            case "-": self.negative = not self.negative
             case "~": self.average_level += 1
             case "?": self.sides = "?"
             case _: raise ValueError(f"'{param}' not a dice parameter.")
@@ -295,6 +295,9 @@ class Dice:
         # ",None" and "" to ensure output + x + r + rr is coherent
         output = surround([output + x + r + rr], "anyroll")
 
+        # Negative sides gives negative results
+        if self.negative: output = surround(["0", output], "sub")
+
         # Output every low-level roll
         if self.verbose_level >= 2 - self.list: output += "#"
         # Iterate with number of sides
@@ -315,7 +318,7 @@ class Dice:
         # If not asking for a list of results, wrap in summation
         if not self.list: output = surround(output, "sum")
         if self.verbose_level >= 1: output += "#" # Output the final result
-        return output
+        return output.lower() # In lowercase
     
 
     def replace(self, txt: str) -> str:
@@ -330,16 +333,19 @@ class Dice:
 
 
 
-def translate_dice(arg: str, scuff: bool = False) -> (str,bool):
+def translate_dice(arg: str, scuff: bool = False, noresolve: list = None) -> (str,bool):
     """Translate dice-rolling input into a mathematical expression"""
     if isiterable(arg): return [translate_dice(i) for i in arg]
-    arg = replace_simple(arg, _REPLACE)
+    arg = replace_simple(arg, _REPLACE) # Sanitize string
     has_dice = False ; i = 0
     while i < len(arg):
+        # Find if a dice notation is present at this index
         dice = analyse_dice(arg, i, scuff)
-        if dice:
-            arg = dice.replace(arg)
-            i = 0 ; has_dice = True
+        if dice: # If a dice expression is found
+            arg = dice.replace(arg) # Replace the dice with its translation
+            if noresolve is not None: # Log the change if needed
+                noresolve_stack(noresolve, arg, "Dice")
+            i = 0 ; has_dice = True # Restart the loop
         i += 1
     return arg, has_dice
 

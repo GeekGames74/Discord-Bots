@@ -1,19 +1,7 @@
 """
 Common functions for most cogs and modules.
 Discord.py is not allowed here; see 'discord_utils' MOD for those.
-Below imports should not include any built-in's, to avoid cyclic imports.
 """
-
-
-
-##################################################
-# IMPORTS
-##################################################
-
-
-
-from os import path as os_path
-from os import sep as os_sep
 
 
 
@@ -27,8 +15,6 @@ from os import sep as os_sep
 _SPACING = ["", "-", "_"]
 # Punctuation for the remove_punct function
 _PUNCT = ['.', ',', '?', '!', ';', ':', '"', "'", " "]
-
-_ROOT = os_path.abspath(os_path.join(os_path.dirname(__file__), '..'))
 
 
 
@@ -96,7 +82,7 @@ def mixmatch(part1: list, part2: list, spacing: list = _SPACING,
     return [n for n in names if n and n not in remove]
 
 
-def remove_punct(txt: str) -> str:
+def removepunct(txt: str) -> str:
     """Remove punctuation from a string"""
     for p in _PUNCT: txt = txt.replace(p, "")
     return txt
@@ -108,18 +94,7 @@ def plural(obj: any, _n = "s", _0 = "s", _1 = "", _p = "s") -> any:
     match n:
         case 0: return _0
         case 1: return _1
-        case _: return _n if n<0 else _p
-    
-
-def path_from_root(txt: str = "") -> str:
-    """
-    Return absolute path to the project root directory.
-    Can also transform a local path (relative to project root)
-    to absolute path (no matter the os (use '/' to sep))
-    """
-    txt.removeprefix("/")
-    if txt: return os_path.join(_ROOT, txt.replace('/', os_sep))
-    return _ROOT
+        case _: return _n if n < 0 else _p
 
 
 def correspond(needle: str, haystack: set()) -> str:
@@ -148,8 +123,8 @@ def surround(txt, prefix) -> str:
 def yes_no(txt: str) -> bool:
     """Evaluate text to answer true or false"""
     txt = txt.lower()
-    if correspond(txt, ["yes", "true", "oui", "vrai"]): return True
-    if correspond(txt, ["non", "false", "faux"]): return False
+    if correspond(txt, ["on", "yes", "true", "oui", "vrai"]): return True
+    if correspond(txt, ["off", "non", "false", "faux"]): return False
     return None
 
 

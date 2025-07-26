@@ -1,7 +1,16 @@
 {
-    "prefix": "/", "//": "Default command prefix.",
-    "token_location": "gamma_token.txt", "//": "Token file, relative to /Secret/.",
-    "base_intent": "default", "//": " none | default | all ",
-    "target_intents": ["message_content", "members"], "//": "discord.Intents properties to *toggle* from base.",
-    "base_extensions": ["Audio", "Core", "Evaluation", "Integration", "Temporary"], "//": "extensions (from /Extensions/.) to enable."
+    "//": "Default command prefix for the instance",
+    "prefix": "/",
+    "//": "Token file name/location, relative to /Secret/.",
+    "token": "gamma_token.txt",
+
+    "//": "Base intents to use, in [none|default|all]",
+    "base_intents": "default",
+    "//": "Intents to toggle from base",
+    "target_intents": ["message_content", "members"],
+
+    "//": "Extensions (from /Extensions/.) to enable",
+    "extensions": ["Audio", "Core", "Evaluation", "Integration", "Temporary"],
+    "//": "Cogs to disable from base_extensions",
+    "unload_cogs": []
 }

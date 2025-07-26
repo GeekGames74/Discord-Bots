@@ -17,7 +17,7 @@ from discord.ext import commands as CMDS
 from discord.ext.commands.bot import Bot
 from discord.ext.commands.context import Context as CTX
 
-from Modules.basic import least_one, mixmatch, remove_punct
+from Modules.basic import least_one, mixmatch, removepunct
 from Modules.reactech import Reactech
 
 
@@ -68,7 +68,7 @@ class Setup(CMDS.Cog):
         status = None ; activity = None
 
         for k,v in _STATUSES.items():
-            if remove_punct(action + txt) in v:
+            if removepunct(action + txt) in v:
                 status = k ; break
 
         if status: # Only if status is recognized (otherwise set activity)
@@ -147,6 +147,7 @@ class Setup(CMDS.Cog):
 
     @CMDS.Cog.listener()
     async def on_ready(self):
+        print(f"{self.bot.user.name.capitalize()} is ready")
         await self.activity(None, "Online")
         await self.activity(None, "Default")
 
@@ -187,8 +188,14 @@ class System(CMDS.Cog):
     @CMDS.is_owner() # /kill-yourself is now a valid command (yipee ..?)
     async def kill(self, ctx: CTX) -> None:
         """Save and quit the bot instance."""
+        # Logging and user response
         if ctx: await ctx.message.add_reaction("✅")
-        print("Bot is shutting down")
-        await self.bot.close()
+        print(f"{self.bot.user.name.capitalize()} is shutting down")
+        # Disconnect from voicechannels
+        for vc in self.bot.voice_clients:
+            vc.playing = None
+            if vc.is_playing(): vc.stop()
+            await vc.disconnect(force = True)
         # Save cog: [async] def cog_unload(self):
         # Save ext: [async] def teardown(bot):
+        self.bot.shutdown.set()

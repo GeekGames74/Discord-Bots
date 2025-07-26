@@ -17,12 +17,11 @@ from platform import system as pltf_sys
 from os import listdir, path
 from sys import argv
 from subprocess import run, PIPE
-from asyncio import gather
+from asyncio import gather, Event, create_task
 from asyncio import run as asyncrun
-from pkg_resources import require
 
-from Modules.data import data_JSON, data_TXT
-from Modules.basic import makeiterable, correspond, least_one, path_from_root
+from Modules.data import data, path_from_root
+from Modules.basic import makeiterable, correspond, least_one
 
 
 
@@ -40,21 +39,27 @@ async def build_bot(path: str):
     from discord.ext.commands.bot import Bot
     from discord import Intents, Activity
     print(f"Starting bot '{path}'")
+    
     if not path.endswith(".json"): path += ".json"
-    data = data_JSON("Resources/Configs/" + path)
-    base_intent = getattr(Intents(), data["base_intent"])
-    intents = toggle_intents(base_intent(), data["target_intents"])
-    bot = Bot(data["prefix"], case_insensitive = True,
+    config = data("Resources/Configs/" + path, filenotfound = False)
+    base_intent = getattr(Intents(), config["base_intents"])
+    intents = toggle_intents(base_intent(), config["target_intents"])
+    bot = Bot(config["prefix"], case_insensitive = True,
                strip_after_prefix = True, activity = Activity(),
                intents = intents) # Default activity and status are set in @on_ready()
-    for ext in data["base_extensions"]: # No extension is loaded by default
+    
+    for ext in config["extensions"]: # No extension is loaded by default
         name = "Extensions." + ext.removesuffix(".py").capitalize()
         await bot.load_extension(name) # load is asynchronous
-    location = "Secret/" + data["token_location"]
-    TOKEN = data_TXT(location, "token")["token"]
-    await bot.start(TOKEN, reconnect = True)
+    for cog in config["unload_cogs"]: # Disable these cogs
+        await bot.remove_cog(cog.capitalize())
+    
+    TOKEN = data("Secret/" + config["token"], filenotfound = False)
+    bot.shutdown = Event() # Signal to terminate the bot
+    create_task(bot.start(TOKEN, reconnect = True))
+    await bot.shutdown.wait() # When the shutdown signal is sent
+    await bot.close()
     return bot
-
 
 
 def toggle_intents(obj, intents):
@@ -162,25 +167,24 @@ def get_active_bots():
 
 
 def main(to_launch: set) -> None:
-    """ Launch all requested bots one after the other using async."""
+    """Launch all requested bots one after the other using async."""
     if not to_launch: raise TypeError("No configs given to resolve and launch")
     async def asyncmain(schedule) -> None:
-        await gather(*schedule)
+        try: await gather(*schedule)
+        except Exception as e: print(e)
     schedule = [build_bot(f) for f in to_launch]
-    asyncrun(asyncmain(schedule))
-
+    try: asyncrun(asyncmain(schedule))
+    except KeyboardInterrupt: print("Aborted script (KeyboardInterrupt)")
 
 
 if __name__ == "__main__":
     myargs = [a.lower() for a in argv[1:]]
-    if least_one(["--help", "--h"], myargs): bothelp()
+    if least_one(["--help", "-h"], myargs): bothelp()
     noscreen = "--no-screen" in myargs
     trueargs = [i for i in myargs if not i.startswith("-")]
     to_launch = names_to_files(*trueargs)
 
-    if pltf_sys() == "Windows":
-        require(data_TXT("requirements.txt"))
-        main(to_launch)
+    if pltf_sys() == "Windows": main(to_launch)
     elif pltf_sys() == "Linux":
         try: main(to_launch)
         except ModuleNotFoundError as e:

@@ -22,8 +22,8 @@ from asyncio import gather, sleep
 
 from Modules.reactech import Reactech
 from Modules.discord_utils import DscConverter, find_vc
-from Modules.data import data_JSON, checkfile, write_JSON
-from Modules.basic import mixmatch, plural, correspond, path_from_root, yes_no
+from Modules.data import data, path_from_root
+from Modules.basic import mixmatch, plural, correspond, yes_no
 
 
 async def setup(bot: Bot):
@@ -38,34 +38,6 @@ async def setup(bot: Bot):
 
 
 MAX_VOLUME = 200
-
-
-def get_audio(bot: Bot = None, guild: DSC.Guild = None, key: str = None, default = None) -> any:
-    try: data = data_JSON("Data/audio.json")
-    except FileNotFoundError: data = {}
-    if bot is None and not guild: return data
-    elif isinstance(bot, dict): data = bot
-    else: data = data.get(str(bot.user.id), {})
-    if guild is None: return data
-    elif isinstance(guild, dict): data = guild
-    else: data = data.get(str(guild.id), {})
-    if key is None: return data
-    return data.get(key, default)
-
-
-def set_audio(data: dict = None, bot: Bot = None, guild: DSC.Guild = None, key: str= None, value: any = None) -> dict:
-    if not data: data = get_audio()
-    if bot:
-        if str(bot.user.id) not in data:
-            data[str(bot.user.id)] = {}
-        if guild:
-            if str(guild.id) not in data[str(bot.user.id)]:
-                data[str(bot.user.id)][str(guild.id)] = {}
-            if key:
-                data[str(bot.user.id)][str(guild.id)][key] = value
-    write_JSON("Data/audio.json", data)
-    return data
-
 
 
 class Voice(CMDS.Cog):
@@ -134,13 +106,14 @@ class Voice(CMDS.Cog):
         vc = guild.voice_client
         if vc is not None and vc.is_connected():
             if vc.channel.permissions_for(guild.get_member(ctx.author.id)).view_channel:
-                if vc.is_playing() and not vc.channel.permissions_for(
-                    vc.guild.get_member(ctx.author.id)).move_members:
+                if vc.is_playing(): 
+                    if not vc.channel.permissions_for(vc.guild.get_member(ctx.author.id)).move_members:
                         await self.Reactech.reactech_channel(ctx, "⛔",
                             "You do not have permission to move the bot in this server.")
                         return False
+                    vc.stop()
 
-                await vc.disconnect()
+                await vc.disconnect(force=True)
                 if isinstance(target, DSC.Guild): return True
                 return await self.Reactech.reactech_valid(ctx,
                     f"Left voice channel {vc.channel.mention}.")
@@ -165,7 +138,8 @@ class Voice(CMDS.Cog):
             guild = channel.guild
         else: guild = ctx.guild
         
-        volume = get_audio(self.bot, guild, "volume", 100)
+        volume = data("Data/servers.json", 100, str(guild.id), str(self.bot.user.id), "volume",
+            filenotfound = None, keynotfound = None)
         if txt is None: return await ctx.reply(
             "Volume is currently at " + str(volume) + "%",
             mention_author = False)
@@ -197,7 +171,7 @@ class Voice(CMDS.Cog):
             msg = " (maximum volume)"
             volume = MAX_VOLUME
         
-        set_audio(None, self.bot, guild, "volume", volume)
+        data("Data/servers.json", volume, str(guild.id), str(self.bot.user.id), "volume", read_only = False)
         if guild.voice_client:
             vc = guild.voice_client
             if vc and vc.is_connected() and vc.source:
@@ -244,16 +218,20 @@ class Voice(CMDS.Cog):
                         txt = "Paused"
                     elif cmd.lower() in CMD_STOP:
                         vc.stop()
+                        vc.playing = None
                         txt = "Stopped"
                     elif cmd.lower() in CMD_QUIT:
-                        await vc.disconnect()
+                        vc.stop()
+                        vc.playing = None
+                        await vc.disconnect(force=True)
                         txt = "Disconnected"
                     success += 1
                 except Exception as e:
                     errors[vc] = e
-            gatherer.append(self.Reactech.reactech_valid(
+            if vcs: gatherer.append(self.Reactech.reactech_valid(
                 ctx, f"{txt} `{success}` voiceclient{plural(success)}."))
-            
+            else: return await ctx.send("The bot is not connected to any voice channels.")
+
             if len(errors) > 0:
                 msg = f"Raised `{len(errors)}` error{plural(len(errors))}."
                 for vc,e in errors.items():
@@ -289,19 +267,16 @@ def format_filename(input: str) -> (str, str):
 
 def normalize_sounds() -> None:
     """Normalize the audio files to a target volume."""
-    try: checkfile(RELATIVE_PATH + "info.json")
-    except FileNotFoundError:
-        write_JSON(RELATIVE_PATH + "info.json", {})
-    info = data_JSON(RELATIVE_PATH + "info.json")
+    audio = data("Data/audio.json", {}, filenotfound = None)
     for file in listdir(RELATIVE_PATH):
         if "._temp_." in file: continue
         filename, ext = format_filename(file)
         if ext not in AUDIO_EXTS: continue
         path = path_from_root(RELATIVE_PATH + file)
-        if filename not in info:
-            info[filename] = {}
-        if "mod_time" not in info[filename] or \
-                info[filename]["mod_time"] < getmtime(path):
+        if filename not in audio:
+            audio[filename] = {}
+        if "mod_time" not in audio[filename] or \
+                audio[filename]["mod_time"] < getmtime(path):
             temp_path = path_from_root(RELATIVE_PATH + filename + "._temp_." + ext)
             if isfile(temp_path): continue
             command = [
@@ -311,9 +286,9 @@ def normalize_sounds() -> None:
             ]
             subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             replace(temp_path, path)
-            info[filename]["mod_time"] = getmtime(path) + 1
+            audio[filename]["mod_time"] = getmtime(path) + 1
             print(f"Sound: normalized '{file}'")
-    write_JSON(RELATIVE_PATH + "info.json", info)
+    data("Data/audio.json", audio, read_only = False)
 
 
 class Sounds(CMDS.Cog):
@@ -371,8 +346,8 @@ class Sounds(CMDS.Cog):
 
         name = format_filename(msg)[0]
         try:
-            data = data_JSON(RELATIVE_PATH + "info.json")
-            for key, value in data.items():
+            audio = data("Data/audio.json", {}, filenotfound = None)
+            for key, value in audio.items():
                 if name == key or name in value.get("aliases", []):
                     name = key
                     break
@@ -389,8 +364,9 @@ class Sounds(CMDS.Cog):
                 "❓", f"Could not find sound file `{msg}`.")
         
         file = final + "." + exts[files.index(final)]
-        path = checkfile(RELATIVE_PATH + file)
-        volume = get_audio(self.bot, channel.guild, "volume", 100)
+        path = path_from_root(RELATIVE_PATH + file)
+        volume = data("Data/servers.json", 100, str(channel.guild.id), str(self.bot.user.id),
+            "volume", filenotfound = None, keynotfound = None)
         source = DSC.FFmpegPCMAudio(path)
         source = DSC.PCMVolumeTransformer(source, volume/100)
         if vc.is_playing(): vc.stop()
@@ -425,7 +401,8 @@ class Sounds(CMDS.Cog):
             return await self.Reactech.reactech_channel(ctx, "🚫",
                 "Fadeout can last between 0 and 60 seconds.")
 
-        volume = get_audio(self.bot, channel.guild, "volume", 100)/100
+        volume = data("Data/servers.json", 100, str(channel.guild.id), str(self.bot.user.id),
+            "volume", filenotfound = None, keynotfound = None)/100
         if time:
             for i in range(1, 26):
                 vc.source.volume = volume - i*volume/25
@@ -457,22 +434,27 @@ class Sounds(CMDS.Cog):
             return await self.Reactech.reactech_user(ctx, "⛔",
                 "You do not have permission to loop audio in this server.")
         
-        if value is None: looping = not get_audio(self.bot, guild, "looping", False)
+        if value is None: looping = not data("Data/servers.json", False,
+            str(guild.id), str(self.bot.user.id), "looping",
+            filenotfound = None, keynotfound = None)
         else: looping = yes_no(value)
         if looping is None: return await self.Reactech.reactech_user(ctx,
             "⁉️", f"Value `{value.lower()}` could not resolve to a boolean.")
 
-        set_audio(None, self.bot, guild, "looping", looping)
+        data("Data/servers.json", looping, str(guild.id), str(self.bot.user.id), "looping", read_only = False)
         if looping: await self.Reactech.reactech_channel(ctx, "🔁", f"Looping enabled in `{guild}`.")
-        else: await self.Reactech.reactech_channel(ctx, "⏯️", f"Looping enabled in `{guild}`.")
+        else: await self.Reactech.reactech_channel(ctx, "⏯️", f"Looping disabled in `{guild}`.")
 
 
     def tryloop(self, vc: DSC.VoiceProtocol, error: Exception = None) -> None:
         try:
             if error: raise error
-            if not get_audio(self.bot, vc.guild, "looping", False): return
-            volume = get_audio(self.bot, vc.guild, "volume", 100)
-            path = checkfile(RELATIVE_PATH + vc.playing)
+            if not data("Data/servers.json", False,
+                str(vc.guild.id), str(self.bot.user.id), "looping",
+                filenotfound = None, keynotfound = None): return
+            volume = data("Data/servers.json", 100, str(vc.guild.id), str(self.bot.user.id),
+                "volume", filenotfound = None, keynotfound = None)
+            path = path_from_root(RELATIVE_PATH + vc.playing)
             source = DSC.PCMVolumeTransformer(DSC.FFmpegPCMAudio(path), volume/100)
             vc.play(source, after = lambda x: self.tryloop(vc))
         except Exception as e:

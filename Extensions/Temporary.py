@@ -18,10 +18,12 @@ from asyncio import TimeoutError, CancelledError
 
 from asyncio import gather
 from datetime import datetime as dt
+from datetime import timedelta as td
 from traceback import TracebackException
 import string
 
 from Modules.reactech import Reactech
+from Modules.data import data
 
 
 async def setup(bot: Bot):
@@ -48,22 +50,22 @@ _SCHEDULE_EMOJIS = [
 ]
 
 
-def generate_schedule(args: list, n: int = 0, shift: int = 0,
+def generate_schedule(args: list, amount: int = 1, offset: int = 0,
         include: list = None, days: list = "en") -> (list, list):
     """
     Generate the schedule text with <args> as lines and <n> columns/days (0 is now)
     Return the message list as well as the reactions to add
     """
-    if include is None: include = [True for i in range(len(args)*(n+1))]
+    if include is None: include = [True for i in range(len(args)*(amount))]
     if isinstance(days, str): days = _SCHEDULE_DAYS[days]
-    weekday = (dt.today().weekday() + shift) % 7 ; emojis = []
+    weekday = (dt.today().weekday() + offset) % 7 ; emojis = []
     
     max_arg_len = max([len(a) for a in args])
     lines = [[" `" + " "*max_arg_len] if i==0 else
             ["`" + args[i-1].ljust(max_arg_len) + "`"]
             for i in range(len(args)+1)]
     
-    for i in range(n+1):
+    for i in range(amount):
         lines[0] += [" " +days[(i+weekday)%7][:2]]
         if (i+weekday)%7 == 6: lines[0][-1] += " "
         for j in range(len(args)):
@@ -101,7 +103,7 @@ class Temp(CMDS.Cog):
         except SyntaxError:
             try: exec(txt)
             except Exception as e: raise e
-        except Exception as e: print(e)
+        except Exception as e: raise(e)
 
 
     @CMDS.command(name = "cornelius")
@@ -125,39 +127,42 @@ class Temp(CMDS.Cog):
     async def schedule(self, ctx: CTX, *args: str) -> None:
         """
         Create a schedule query to check when people are available.
-        As arguments, write the lines you wish to provide (ex: Morning Afternoon Evening)
-        as well as a positive integer x or +x for the amount of days to provide, 0 being today.
+        As arguments, write the lines you wish to provide (ex: Morning Afternoon Evening),
+        a positive integer x for the amount of days to provide (default 99),
+        and a positive interger +x for the offset of the first day (default is +0 today).
         If the first argument is a language code, this sets the language for the message
         (currently supported: 'en', 'fr')
         Remember that discord does not allow for more than 20 emojis per message
         React with ✅ to finalize the schedule.
         """
-        if args and len(args) >= 3 and args[0] in _SCHEDULE_DAYS.keys():
-            days = _SCHEDULE_DAYS[args[0]]
+        if args and args[0].lower() in _SCHEDULE_DAYS.keys():
+            days = _SCHEDULE_DAYS[args[0].lower()]
             args = args[1:]
         else: days = _SCHEDULE_DAYS["en"]
 
         if not args: return await self.Reactech.reactech_user(ctx,
-            "⁉️", "Insufficient number of arguments (minimum 2)")
+            "⁉️", "Insufficient number of arguments (minimum 1 excluding language)")
         args = [a.replace("`", "") for a in args]
 
-        i = 0; n = 99
+        i = 0 ; amount = 99 ; offset = 0
         while i < len(args):
             if args[i].isdigit():
-                n = int(args[i])
+                amount = int(args[i])
                 args = args[:i] + args[i+1:]
             elif args[i].startswith("+") and args[i][1:].isdigit():
-                n = int(args[i][1:])
+                offset = int(args[i][1:])
                 args = args[:i] + args[i+1:]
             else: i += 1
 
-        if len(args)*(n+1) > 19: n = (19//len(args)) - 1
-        if n <= -1: return await self.Reactech.reactech_user(ctx,
+        if amount == 0: return await self.Reactech.reactech_user(ctx,
+            "❌", "Could not display empty schedule.")
+        if len(args)*(amount) > 19: amount = (19//len(args))
+        if amount <= 0: return await self.Reactech.reactech_user(ctx,
             "❌", "Could not display schedule: too many lines")
 
         gather(self.Reactech.reactech(ctx, "ℹ️", timeout = _SCHEDULE_WAIT_TIMEOUT,
             method = "user.send('Schedule is being built')"))
-        lines, emojis = generate_schedule(args, n, days = days)
+        lines, emojis = generate_schedule(args, amount, offset, days = days)
         msg = await ctx.author.send("\n".join(["".join(i) for i in lines]))
         for e in emojis + ["✅"]: await msg.add_reaction(e)
 
@@ -183,18 +188,20 @@ class Temp(CMDS.Cog):
 
         await message.delete()
         await ctx.message.remove_reaction("ℹ️", self.bot.user)
-        shift = 0
         
         if any(reactions_to_keep):
             while not any(reactions_to_keep[:len(args)]):
                 reactions_to_keep = reactions_to_keep[len(args):]
-                shift += 1 ; n -= 1
+                offset += 1 ; amount -= 1
             while not any(reactions_to_keep[-len(args):]):
                 reactions_to_keep = reactions_to_keep[:-len(args)]
-                n -= 1
+                amount -= 1
         else: reactions_to_keep = None
 
-        lines, emojis = generate_schedule(args, n, shift, reactions_to_keep, days)
+        lines, emojis = generate_schedule(args, amount, offset, reactions_to_keep, days)
+        start = dt.today() + td(days = offset)
+        end = start + td(days = amount-1)
+        lines.insert(0, f"<t:{int(start.timestamp())}:d> → <t:{int(end.timestamp())}:d>")
         msg = await ctx.reply("\n".join(["".join(i) for i in lines]))
         for e in emojis: await msg.add_reaction(e)
 
