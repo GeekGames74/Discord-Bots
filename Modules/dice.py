@@ -395,19 +395,14 @@ def dice_end(dice: Dice, txt: str, i: int, scuff: bool = False) -> bool:
     # it will be caught in final_param()
     if i >= len(txt)-1: return True
 
-    # Test if is a dice arg '@!^vl#xpn~?'
+    # Test if is a dice arg '@!^vl#xpn~-?'
     if txt[i+1] in _DICE_ARGS or \
-        (scuff and txt[i+1] == "?"):
-        # No more params after dice.sides is set
-        if dice.sides is None:
+        (scuff and txt[i+1] == "?") \
+        and dice.sides is None:
+            # No more params after dice.sides is set
             dice.set_param(txt[i+1])
             dice.end = i+1
             return dice_end(dice, txt, i+1, scuff)
-        # If it's neither an addon or an 'AFTER' symbol,
-        # then it's a misplaced parameter -> terminate
-        if not isaddon(txt, i+1) and \
-            not txt[i+1] in _AFTER_STR:
-                return False
     
     # Test if it's part of an addon after dice.sides
     addon = isaddon(txt, i+1)

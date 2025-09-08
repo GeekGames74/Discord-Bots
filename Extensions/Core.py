@@ -166,7 +166,7 @@ class System(CMDS.Cog):
         self.Reactech = Reactech(bot)
 
 
-    @CMDS.command(name = "ping", aliases = ["test", "!", "latency"])
+    @CMDS.command(name = "ping", aliases = ["!", "latency"])
     async def ping(self, ctx: CTX) -> int:
         """Returns the current latency (in ms)."""
         latency = int(self.bot.latency*1000)

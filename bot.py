@@ -189,6 +189,5 @@ if __name__ == "__main__":
         except ModuleNotFoundError as e:
             if not noscreen: start_screen("./venv", to_launch)
             else: raise e
-        except Exception as e: raise e
     else: raise NotImplementedError("Can only run in windows and linux")
 

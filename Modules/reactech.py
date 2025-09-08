@@ -54,7 +54,11 @@ class Reactech:
         # Ensure the msg object is actually a message
         msg = self.converter.convertobj(ctx, "message")
         # Add the reaction if needed
-        if react: await msg.add_reaction(emoji)
+        if react:
+            # When using base reactech, we assume it is not the main purpose of the command
+            # So if the bot cannot react, we do not raise an error to avoid a blocking error
+            try: await msg.add_reaction(emoji)
+            except (DSC.Forbidden, DSC.HTTPException) : pass
         
         # Here the Bot waits for a reaction add that matches (check)
         def check(reaction: DSC.Reaction, user: DSC.User) -> bool:
@@ -67,7 +71,6 @@ class Reactech:
         try: reaction, user = await self.bot.wait_for("reaction_add", check = check, timeout = timeout)
         except (TimeoutError, CancelledError):
             pass # Timeout is expected, Cancelled is often called on bot shutdown
-        except Exception as e: raise e
         
         else: # Activates on valid reaction
             await eval(method, globals(), locals())
@@ -87,17 +90,17 @@ class Reactech:
 
 
 
-    async def reactech_user(self, ctx: CTX, emoji: str, txt: str) -> None:
+    async def reactech_user(self, ctx: CTX, emoji: str, txt: str, timeout: int = 900) -> None:
         """Per user, recursive, 15 min."""
-        await self.reactech(ctx, emoji, True, -1, 900, None, "user.send(*args)", txt)
+        await self.reactech(ctx, emoji, True, -1, timeout, None, "user.send(*args)", txt)
 
 
-    async def reactech_channel(self, ctx: CTX, emoji: str, txt: str) -> None:
+    async def reactech_channel(self, ctx: CTX, emoji: str, txt: str, timeout: int = 3600) -> None:
         """Once in channel then per user, recursive, 1h."""
         func =  "msg.reply(*args, mention_author = False) " + \
                 "if recursive == -1 else " + \
                 "user.send(*args)"
-        await self.reactech(ctx, emoji, True, -1, 3600, None, func, txt)
+        await self.reactech(ctx, emoji, True, -1, timeout, None, func, txt)
 
 
     async def reactech_valid(self, ctx: CTX, txt: str) -> None:
@@ -124,7 +127,8 @@ class Reactech:
             if len(emojis) > 20:
                 print("Warning: Cannot have more than 20 emojis here!")
                 emojis = emojis[:20]
-            gather(*[msg.add_reaction(e) for e in emojis])
+            try: gather(*[msg.add_reaction(e) for e in emojis])
+            except DSC.Forbidden: pass
 
             def check(reaction: DSC.Reaction, user: DSC.User) -> bool:
                 return (msg == reaction.message # On the current message
@@ -136,7 +140,6 @@ class Reactech:
             except TimeoutError:
                 if default is not None: return default
                 else: return emojis[0] # Default is the first emoji if not specified
-            except Exception as e: raise e
             else: return reaction.emoji
 
 

@@ -31,13 +31,60 @@ async def setup(bot: Bot):
     await bot.add_cog(Sounds(bot))
 
 
+
 ##################################################
-# VOICE
+# GLOBAL
 ##################################################
 
 
 
 MAX_VOLUME = 200
+
+AUDIO_EXTS = ["mp3", "m4a", "wav", "ogg", "flac", "opus", "webm", "aac"]
+RELATIVE_PATH = "Resources/Assets/Sounds/" # Path for built-in sounds
+TARGET_VOLUME = -40 # LUFS
+
+
+def format_filename(input: str) -> (str, str):
+    """Format the filename for soundboard use."""
+    splitted = input.split(".") # Remove extension
+    ext = splitted[1] if len(splitted) > 1 else None
+    # Only alphanum characters allowed in names
+    name = "".join(c for c in splitted[0] if c.isalnum())
+    return name.lower(), ext
+
+
+def normalize_sounds() -> None:
+    """Normalize the audio files to a target volume."""
+    audio = data("Data/audio.json", {}, filenotfound = None)
+    for file in listdir(RELATIVE_PATH):
+        if "._temp_." in file: continue
+        filename, ext = format_filename(file)
+        if ext not in AUDIO_EXTS: continue
+        path = path_from_root(RELATIVE_PATH + file)
+        if filename not in audio:
+            audio[filename] = {}
+        if "mod_time" not in audio[filename] or \
+                audio[filename]["mod_time"] < getmtime(path):
+            temp_path = path_from_root(RELATIVE_PATH + filename + "._temp_." + ext)
+            if isfile(temp_path): continue
+            command = [
+                "ffmpeg", "-i", path, "-filter:a",
+                f"loudnorm=I={TARGET_VOLUME}:TP=-1.5:LRA=11",
+                "-ar", "48000", "-y", temp_path
+            ]
+            subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            replace(temp_path, path)
+            audio[filename]["mod_time"] = getmtime(path) + 1
+            print(f"Sound: normalized '{file}'")
+    data("Data/audio.json", audio, read_only = False)
+
+
+
+##################################################
+# VOICE
+##################################################
+
 
 
 class Voice(CMDS.Cog):
@@ -130,7 +177,7 @@ class Voice(CMDS.Cog):
     @CMDS.command(name = "volume", aliases = mixmatch(["volume", "vol"],
             ["", "vc", "voice", "vchannel", "voicechannel"], remove="volume"))
     async def volume(self, ctx: CTX, txt: str = None) -> None:
-        """Count all voice channels the bot is currently connected to."""
+        """Change the volume of the bot in the server."""
         if not ctx.guild:
             channel = find_vc(self.DscConverter, ctx)
             if channel is None: return await self.Reactech.reactech_user(
@@ -138,7 +185,7 @@ class Voice(CMDS.Cog):
             guild = channel.guild
         else: guild = ctx.guild
         
-        volume = data("Data/servers.json", 100, str(guild.id), str(self.bot.user.id), "volume",
+        volume = data("Data/servers.json", 100, str(guild.id), "bots", str(self.bot.user.id), "volume",
             filenotfound = None, keynotfound = None)
         if txt is None: return await ctx.reply(
             "Volume is currently at " + str(volume) + "%",
@@ -170,8 +217,8 @@ class Voice(CMDS.Cog):
         elif volume > MAX_VOLUME:
             msg = " (maximum volume)"
             volume = MAX_VOLUME
-        
-        data("Data/servers.json", volume, str(guild.id), str(self.bot.user.id), "volume", read_only = False)
+
+        data("Data/servers.json", volume, str(guild.id), "bots", str(self.bot.user.id), "volume", read_only = False)
         if guild.voice_client:
             vc = guild.voice_client
             if vc and vc.is_connected() and vc.source:
@@ -252,45 +299,6 @@ class Voice(CMDS.Cog):
 
 
 
-AUDIO_EXTS = ["mp3", "m4a", "wav", "ogg", "flac", "opus", "webm", "aac"]
-RELATIVE_PATH = "Resources/Assets/Sounds/"
-TARGET_VOLUME = -40 # LUFS
-
-
-def format_filename(input: str) -> (str, str):
-    """Format the filename for soundboard use."""
-    splitted = input.split(".")
-    ext = splitted[1] if len(splitted) > 1 else None
-    name = "".join(c for c in splitted[0] if c.isalnum())
-    return name.lower(), ext
-
-
-def normalize_sounds() -> None:
-    """Normalize the audio files to a target volume."""
-    audio = data("Data/audio.json", {}, filenotfound = None)
-    for file in listdir(RELATIVE_PATH):
-        if "._temp_." in file: continue
-        filename, ext = format_filename(file)
-        if ext not in AUDIO_EXTS: continue
-        path = path_from_root(RELATIVE_PATH + file)
-        if filename not in audio:
-            audio[filename] = {}
-        if "mod_time" not in audio[filename] or \
-                audio[filename]["mod_time"] < getmtime(path):
-            temp_path = path_from_root(RELATIVE_PATH + filename + "._temp_." + ext)
-            if isfile(temp_path): continue
-            command = [
-                "ffmpeg", "-i", path, "-filter:a",
-                f"loudnorm=I={TARGET_VOLUME}:TP=-1.5:LRA=11",
-                "-ar", "48000", "-y", temp_path
-            ]
-            subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            replace(temp_path, path)
-            audio[filename]["mod_time"] = getmtime(path) + 1
-            print(f"Sound: normalized '{file}'")
-    data("Data/audio.json", audio, read_only = False)
-
-
 class Sounds(CMDS.Cog):
     """Soundboard and preset music."""
     def __init__(self, bot: Bot):
@@ -365,7 +373,7 @@ class Sounds(CMDS.Cog):
         
         file = final + "." + exts[files.index(final)]
         path = path_from_root(RELATIVE_PATH + file)
-        volume = data("Data/servers.json", 100, str(channel.guild.id), str(self.bot.user.id),
+        volume = data("Data/servers.json", 100, str(channel.guild.id), "bots", str(self.bot.user.id),
             "volume", filenotfound = None, keynotfound = None)
         source = DSC.FFmpegPCMAudio(path)
         source = DSC.PCMVolumeTransformer(source, volume/100)
@@ -401,7 +409,7 @@ class Sounds(CMDS.Cog):
             return await self.Reactech.reactech_channel(ctx, "🚫",
                 "Fadeout can last between 0 and 60 seconds.")
 
-        volume = data("Data/servers.json", 100, str(channel.guild.id), str(self.bot.user.id),
+        volume = data("Data/servers.json", 100, str(channel.guild.id), "bots", str(self.bot.user.id),
             "volume", filenotfound = None, keynotfound = None)/100
         if time:
             for i in range(1, 26):
@@ -435,13 +443,13 @@ class Sounds(CMDS.Cog):
                 "You do not have permission to loop audio in this server.")
         
         if value is None: looping = not data("Data/servers.json", False,
-            str(guild.id), str(self.bot.user.id), "looping",
+            str(guild.id), "bots", str(self.bot.user.id), "looping",
             filenotfound = None, keynotfound = None)
         else: looping = yes_no(value)
         if looping is None: return await self.Reactech.reactech_user(ctx,
             "⁉️", f"Value `{value.lower()}` could not resolve to a boolean.")
 
-        data("Data/servers.json", looping, str(guild.id), str(self.bot.user.id), "looping", read_only = False)
+        data("Data/servers.json", looping, str(guild.id), "bots", str(self.bot.user.id), "looping", read_only = False)
         if looping: await self.Reactech.reactech_channel(ctx, "🔁", f"Looping enabled in `{guild}`.")
         else: await self.Reactech.reactech_channel(ctx, "⏯️", f"Looping disabled in `{guild}`.")
 
@@ -450,9 +458,9 @@ class Sounds(CMDS.Cog):
         try:
             if error: raise error
             if not data("Data/servers.json", False,
-                str(vc.guild.id), str(self.bot.user.id), "looping",
+                str(vc.guild.id), "bots", str(self.bot.user.id), "looping",
                 filenotfound = None, keynotfound = None): return
-            volume = data("Data/servers.json", 100, str(vc.guild.id), str(self.bot.user.id),
+            volume = data("Data/servers.json", 100, str(vc.guild.id), "bots", str(self.bot.user.id),
                 "volume", filenotfound = None, keynotfound = None)
             path = path_from_root(RELATIVE_PATH + vc.playing)
             source = DSC.PCMVolumeTransformer(DSC.FFmpegPCMAudio(path), volume/100)

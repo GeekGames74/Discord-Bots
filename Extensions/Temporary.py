@@ -1,5 +1,5 @@
 """
-Temporary place to hold commands and cogs that have yet to be reworked.
+Temporary place to hold commands and cogs that have yet to be reworked or don't have a specific file yet.
 """
 
 
@@ -23,104 +23,77 @@ from traceback import TracebackException
 import string
 
 from Modules.reactech import Reactech
-from Modules.data import data
 
 
 async def setup(bot: Bot):
+    await bot.add_cog(Scheduling(bot))
     await bot.add_cog(Temp(bot))
 
 
 
 ##################################################
-# COG
+# SCHEDULING
 ##################################################
 
 
-_SCHEDULE_DAYS = {
-    "en": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-    "fr": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"],
-}
 
-_SCHEDULE_WAIT_TIMEOUT = 600 # seconds
-_SCHEDULE_EMOJIS = [
-    '🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬',
-    '🇭', '🇮', '🇯', '🇰', '🇱', '🇲', '🇳',
-    '🇴', '🇵', '🇶', '🇷', '🇸', '🇹', '🇺',
-    '🇻', '🇼', '🇽', '🇾', '🇿'
-]
-
-
-def generate_schedule(args: list, amount: int = 1, offset: int = 0,
-        include: list = None, days: list = "en") -> (list, list):
-    """
-    Generate the schedule text with <args> as lines and <n> columns/days (0 is now)
-    Return the message list as well as the reactions to add
-    """
-    if include is None: include = [True for i in range(len(args)*(amount))]
-    if isinstance(days, str): days = _SCHEDULE_DAYS[days]
-    weekday = (dt.today().weekday() + offset) % 7 ; emojis = []
-    
-    max_arg_len = max([len(a) for a in args])
-    lines = [[" `" + " "*max_arg_len] if i==0 else
-            ["`" + args[i-1].ljust(max_arg_len) + "`"]
-            for i in range(len(args)+1)]
-    
-    for i in range(amount):
-        lines[0] += [" " +days[(i+weekday)%7][:2]]
-        if (i+weekday)%7 == 6: lines[0][-1] += " "
-        for j in range(len(args)):
-            if include[i*len(args)+j]: 
-                letter = string.ascii_lowercase[len(emojis)]
-                lines[j+1] += [f" :regional_indicator_{letter}:"]
-                emojis += [_SCHEDULE_EMOJIS[len(emojis)]]
-            else: lines[j+1] += [f" :black_large_square:"]
-    
-    lines[0][-1] += "`"
-    return lines, emojis
-
-
-
-class Temp(CMDS.Cog):
-    """Temporary cog to hold commands and cogs that have yet to be reworked."""
+class Scheduling(CMDS.Cog):
+    """Calendar and schedule related commands."""
     def __init__(self, bot: Bot):
         self.bot = bot
         self.Reactech = Reactech(bot)
 
+        self._SCHEDULE_DAYS = {
+            "en": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+            "fr": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"],
+            "es": ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
+            "de": ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"],
+            "it": ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"],
+        }
+        self._SCHEDULE_WAIT_TIMEOUT = 600 # seconds
+        self._SCHEDULE_EMOJIS = [
+            '🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬',
+            '🇭', '🇮', '🇯', '🇰', '🇱', '🇲', '🇳',
+            '🇴', '🇵', '🇶', '🇷', '🇸', '🇹', '🇺',
+            '🇻', '🇼', '🇽', '🇾', '🇿'
+        ]
 
 
-    # Evaluates expression or runs code from Discord
-    # Uses exec() : Be careful of input !
-    @CMDS.command(name = "echo", aliases = ['console', 'send', 'exec', 'command',' cmd', 'execute'])
-    @CMDS.is_owner()
-    async def echo(self, ctx: CTX, *, txt: str) -> None:
+    def generate_schedule(self, args: list, amount: int = 1, offset: int = 0,
+            include: list = None, days: list = "en", date: dt = dt.today()) -> (list, list):
         """
-        Executes a command or evaluates an expression.
-        Usage is reserved for bot developpers / admins, for testing purposes.
-        Report any and every case of abuse to the bot support.
+        Generate the schedule text with <args> as lines
+        Return the message list as well as the reactions to add
         """
-        print(txt)
-        try: await eval(txt)
-        except SyntaxError:
-            try: exec(txt)
-            except Exception as e: raise e
-        except Exception as e: raise(e)
-
-
-    @CMDS.command(name = "cornelius")
-    @CMDS.is_owner()
-    async def cornelius(self, ctx: CTX, amount: int, *, txt = "") -> None:
-        msg = ""
-        if amount >= 10: msg += f"- {amount//10*5} PV temporaires\n"
-        if amount >= 20: msg += f"- {amount//20} prochaines offenses avec avantage\n"
-        if amount >= 30: msg += f"- {amount//30} prochaines défenses avec avantage\n"
-        if amount >= 40: msg += f"- multiattaque +{amount//40} ou sort lvl{amount//40*2} sans consommer d'incantation\n"
-        if amount >= 50: msg += f"- Vitesses multipliées par {(amount//50)+1}\n"
-        if amount >= 60: msg += f"- Dégâts multipliés par {(amount//60)+1}\n"
-        if amount >= 70: msg += f"- Résistance aux dégâts\n"
-        if amount%10: msg += f"{amount%10} points conservés pour le tour suivant\n"
-        if msg: msg = "Jusqu'à la fin de votre prochain tour:\n" + msg + txt
-        msg = msg.removesuffix("\n")
-        if msg: await ctx.reply(msg, mention_author=False)
+        # By default, include all slots in all days
+        if include is None: include = [True for i in range(len(args)*(amount))]
+        # Turn language code into list of days if needed
+        if isinstance(days, str): days = self._SCHEDULE_DAYS[days]
+        # Get the current weekday and offset it
+        weekday = (date.weekday() + offset) % 7 ; emojis = []
+        
+        # Maximum lenght of the line headers
+        max_arg_len = max([len(a) for a in args])
+        # Initialize the lines with headers (with first as blank)
+        # Note the 0-width character at [["<HERE> `" to avoid discord collapsing the start
+        lines = [["​ `" + " " * (max_arg_len-1)]] + \
+            [["`" + args[i].ljust(max_arg_len) + "`"]
+            for i in range(len(args))]
+        
+        for i in range(amount):
+            # Add the day column header to the first line
+            lines[0] += [" " + days[(i+weekday) % 7][:2]]
+            for j in range(len(args)):
+                # If the slot is True in <include>, add the corresponding emoji
+                if include[i * len(args) + j]: 
+                    letter = string.ascii_lowercase[len(emojis)] # a, b, c, ...
+                    lines[j+1] += [f" :regional_indicator_{letter}:"]
+                    emojis += [self._SCHEDULE_EMOJIS[len(emojis)]]
+                # Otherwise, an empty slot is a black square
+                else: lines[j+1] += [f" :black_large_square:"]
+        
+        lines[0][-1] += "`" # Close the first line header
+        return lines, emojis
 
 
     @CMDS.command(name = "schedule", aliases = ["sked", "sched", "skedule"])
@@ -131,21 +104,31 @@ class Temp(CMDS.Cog):
         a positive integer x for the amount of days to provide (default 99),
         and a positive interger +x for the offset of the first day (default is +0 today).
         If the first argument is a language code, this sets the language for the message
-        (currently supported: 'en', 'fr')
+        (currently supported: 'en', 'fr', 'es', 'de', 'it').
+        If the first or second argument is '!', directly send the schedule without needing to customize it.
         Remember that discord does not allow for more than 20 emojis per message
         React with ✅ to finalize the schedule.
         """
-        if args and args[0].lower() in _SCHEDULE_DAYS.keys():
-            days = _SCHEDULE_DAYS[args[0].lower()]
+        # If the first argument is a language code
+        if args and args[0].lower() in self._SCHEDULE_DAYS.keys():
+            # Set the days and remove the argument
+            days = self._SCHEDULE_DAYS[args[0].lower()]
             args = args[1:]
-        else: days = _SCHEDULE_DAYS["en"]
+        # Otherwise, default to english
+        else: days = self._SCHEDULE_DAYS["en"]
+        if args and args[0] == "!":
+            args = args[1:] ; direct = True
+        else: direct = False
 
+        # Ensure there is at least one argument, and remove backticks if any
         if not args: return await self.Reactech.reactech_user(ctx,
-            "⁉️", "Insufficient number of arguments (minimum 1 excluding language)")
+            "⁉️", "Insufficient number of arguments (minimum 1 excluding starting parameters).")
         args = [a.replace("`", "") for a in args]
 
         i = 0 ; amount = 99 ; offset = 0
         while i < len(args):
+            # If argument corresponds to amount or offset,
+            # set it and remove the argument
             if args[i].isdigit():
                 amount = int(args[i])
                 args = args[:i] + args[i+1:]
@@ -156,54 +139,99 @@ class Temp(CMDS.Cog):
 
         if amount == 0: return await self.Reactech.reactech_user(ctx,
             "❌", "Could not display empty schedule.")
-        if len(args)*(amount) > 19: amount = (19//len(args))
+        # If too many slots would be displayed, reduce it so that there are at most 19 slots
+        # (We need at least one free space for the checkmark)
+        max_reacts = 19 if not direct else 20
+        if len(args)*(amount) > max_reacts: amount = (max_reacts//len(args))
         if amount <= 0: return await self.Reactech.reactech_user(ctx,
             "❌", "Could not display schedule: too many lines")
 
-        gather(self.Reactech.reactech(ctx, "ℹ️", timeout = _SCHEDULE_WAIT_TIMEOUT,
-            method = "user.send('Schedule is being built')"))
-        lines, emojis = generate_schedule(args, amount, offset, days = days)
-        msg = await ctx.author.send("\n".join(["".join(i) for i in lines]))
-        for e in emojis + ["✅"]: await msg.add_reaction(e)
-
-        def check(reaction: DSC.Reaction, user: DSC.User) -> bool:
-            return (reaction.message == msg and \
-                    reaction.emoji == "✅"
-                    and user == ctx.author)
-        try: await self.bot.wait_for("reaction_add", timeout = _SCHEDULE_WAIT_TIMEOUT, check=check)
-        except TimeoutError:
-            await msg.delete()
-            await ctx.message.remove_reaction("ℹ️", self.bot.user)
-            mention = "" if ctx.guild is None else f" ({ctx.channel.mention})"
-            return await self.Reactech.reactech_user(ctx, "⚠️",
-                f"Schedule command timed out{mention}")
-        except CancelledError: return
-        except Exception as e: raise e
+        date = dt.today() ; ctx_message = ctx.message # Save date and message for later
         
-        message = await ctx.author.dm_channel.get_partial_message(msg.id).fetch()
-        reactions_to_keep = [
-            len([u async for u in r.users()]) >= 2
-            for r in message.reactions if r.emoji in _SCHEDULE_EMOJIS
-        ]
+        if not direct: # If we need to ask the user which slots to keep
+            await self.Reactech.reactech_user(ctx, "ℹ️",
+                "Schedule is being built", self._SCHEDULE_WAIT_TIMEOUT)
 
-        await message.delete()
-        await ctx.message.remove_reaction("ℹ️", self.bot.user)
-        
-        if any(reactions_to_keep):
-            while not any(reactions_to_keep[:len(args)]):
-                reactions_to_keep = reactions_to_keep[len(args):]
-                offset += 1 ; amount -= 1
-            while not any(reactions_to_keep[-len(args):]):
-                reactions_to_keep = reactions_to_keep[:-len(args)]
-                amount -= 1
+            # Generate the schedule for the first time (all slots included)
+            lines, emojis = self.generate_schedule(args, amount, offset, days = days, date = date)
+            text = "\n".join(["".join(i) for i in lines]) # Join the lines into a single text
+            embed = DSC.Embed(description = text, color = 0x3b88c3) # Create the embed
+            ask_message = await ctx.author.send(embed = embed) # Send the message to the user (in DM)
+            gather(*[ask_message.add_reaction(e) for e in emojis + ["✅"]]) # Add the reactions
+
+            def check(reaction: DSC.Reaction, user: DSC.User) -> bool: # Check function
+                return (reaction.message == ask_message # Same message
+                    and reaction.emoji == "✅") # Checkmark emoji
+            
+            try: await self.bot.wait_for("reaction_add", # Wait for the checkmark reaction
+                timeout = self._SCHEDULE_WAIT_TIMEOUT, check = check)
+            except TimeoutError: # On timeout, delete the ask_message, the context reaction,
+                # If we cannot delete or remove reaction, ignore the error as it is not critical
+                try: await ask_message.delete()
+                except Exception: pass
+                try: await ctx_message.remove_reaction("ℹ️", self.bot.user)
+                except Exception: pass
+                # Warn the user of the timout (relative to channel if relevant)
+                mention = "" if ctx.guild is None else f" ({ctx.channel.mention})"
+                return await self.Reactech.reactech_user(ctx, "⚠️",
+                    f"Schedule command timed out{mention}")
+            except CancelledError: return
+            
+            # On checkmark reaction, fetch the message again to get up-to-date reactions
+            try: message = await ctx.author.dm_channel.fetch_message(ask_message.id)
+            except Exception: return await self.Reactech.reactech_user(ctx,
+                "❓", "Could not fetch the schedule message.")
+            # Determine which slots to keep based on reactions with at least 2 counts (bot and user)
+            reactions_to_keep = [r.count >= 2 for r in message.reactions if r.emoji in self._SCHEDULE_EMOJIS]
+
+            # Delete the ask_message, the context reaction, non-critical errors ignored
+            try: await message.delete()
+            except Exception: pass
+            try: await ctx_message.remove_reaction("ℹ️", self.bot.user)
+            except Exception: pass
+
+            if any(reactions_to_keep): # If at least one slot was selected
+                while not any(reactions_to_keep[:len(args)]):
+                    # Remove excess from the start (+offset, -amount)
+                    reactions_to_keep = reactions_to_keep[len(args):]
+                    offset += 1 ; amount -= 1
+                while not any(reactions_to_keep[-len(args):]):
+                    # Remove excess from the end (-amount)
+                    reactions_to_keep = reactions_to_keep[:-len(args)]
+                    amount -= 1
+            # If no slot was selected, include all slots
+            else: reactions_to_keep = None
         else: reactions_to_keep = None
 
-        lines, emojis = generate_schedule(args, amount, offset, reactions_to_keep, days)
-        start = dt.today() + td(days = offset)
-        end = start + td(days = amount-1)
+        # Generate the final schedule with the selected slots only
+        lines, emojis = self.generate_schedule(args, amount, offset, reactions_to_keep, days, date)
+        # Add the date range at the top of the message
+        start = date + td(days = offset) ; end = start + td(days = amount-1)
         lines.insert(0, f"<t:{int(start.timestamp())}:d> → <t:{int(end.timestamp())}:d>")
-        msg = await ctx.reply("\n".join(["".join(i) for i in lines]))
-        for e in emojis: await msg.add_reaction(e)
+        text = "\n".join(["".join(i) for i in lines]) # Join the lines into a single text
+        embed = DSC.Embed(description = text, color = 0x3b88c3) # Create the embed
+        end_message = await ctx.reply(embed = embed) # Send the message as a reply
+        gather(*[end_message.add_reaction(e) for e in emojis]) # Add the reactions
+
+
+
+##################################################
+# COG
+##################################################
+
+
+
+class Temp(CMDS.Cog):
+    """Temporary cog to hold commands and cogs that have yet to be reworked."""
+    def __init__(self, bot: Bot):
+        self.bot = bot
+        self.Reactech = Reactech(bot)
+
+
+    @CMDS.command(name = "test")
+    @CMDS.is_owner()
+    async def test(self, ctx: CTX) -> None:
+        pass
 
 
 

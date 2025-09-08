@@ -1,5 +1,6 @@
 __pycache__/
 venv/
+.vs/
 
 Data/*
 Resources/Assets/Sounds/*
