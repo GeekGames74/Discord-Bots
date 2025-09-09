@@ -149,18 +149,19 @@ class Scheduling(CMDS.Cog):
         date = dt.today() ; ctx_message = ctx.message # Save date and message for later
         
         if not direct: # If we need to ask the user which slots to keep
-            await self.Reactech.reactech_user(ctx, "ℹ️",
-                "Schedule is being built", self._SCHEDULE_WAIT_TIMEOUT)
+            gather(self.Reactech.reactech_user(ctx, "ℹ️",
+                "Schedule is being built", self._SCHEDULE_WAIT_TIMEOUT))
 
             # Generate the schedule for the first time (all slots included)
             lines, emojis = self.generate_schedule(args, amount, offset, days = days, date = date)
             text = "\n".join(["".join(i) for i in lines]) # Join the lines into a single text
-            embed = DSC.Embed(description = text, color = 0x3b88c3) # Create the embed
+            embed = DSC.Embed(description = text, color = self.bot.color) # Create the embed
             ask_message = await ctx.author.send(embed = embed) # Send the message to the user (in DM)
             gather(*[ask_message.add_reaction(e) for e in emojis + ["✅"]]) # Add the reactions
 
             def check(reaction: DSC.Reaction, user: DSC.User) -> bool: # Check function
                 return (reaction.message == ask_message # Same message
+                    and user == ctx.author # Same user
                     and reaction.emoji == "✅") # Checkmark emoji
             
             try: await self.bot.wait_for("reaction_add", # Wait for the checkmark reaction
@@ -209,7 +210,7 @@ class Scheduling(CMDS.Cog):
         start = date + td(days = offset) ; end = start + td(days = amount-1)
         lines.insert(0, f"<t:{int(start.timestamp())}:d> → <t:{int(end.timestamp())}:d>")
         text = "\n".join(["".join(i) for i in lines]) # Join the lines into a single text
-        embed = DSC.Embed(description = text, color = 0x3b88c3) # Create the embed
+        embed = DSC.Embed(description = text, color = self.bot.color) # Create the embed
         end_message = await ctx.reply(embed = embed) # Send the message as a reply
         gather(*[end_message.add_reaction(e) for e in emojis]) # Add the reactions
 
@@ -242,7 +243,7 @@ class Temp(CMDS.Cog):
 
 
     @CMDS.Cog.listener()
-    async def on_command_error(self, ctx: CTX, error: Exception):
+    async def on_command_error(self, ctx: CTX, error: Exception) -> None:
         # Message to display on error, along with react emoji
         a= ("⛔","This command requires a role or permission you do not posess.\nIf you think this is a mistake, contact server admins.")
         b= ("📛","This command can only be operated by a bot admin.\nIf you think this is a mistake, contact the developer(s).")

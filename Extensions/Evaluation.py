@@ -111,7 +111,7 @@ async def evaluate_args(args: list, dice: bool = False,
 
 
 def solver(expr: str, stack: list, start: float, dice: bool = False,
-        is_scuff: bool = False, noresolve: bool = False):
+        is_scuff: bool = False, noresolve: bool = False) -> (any, bool):
     if dice:
         expr, had_dice = translate_dice(expr, is_scuff, stack if noresolve else None)
         if had_dice:

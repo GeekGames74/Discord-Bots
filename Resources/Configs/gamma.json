@@ -10,7 +10,10 @@
     "target_intents": ["message_content", "members"],
 
     "//": "Extensions (from /Extensions/.) to enable",
-    "extensions": ["Audio", "Core", "Evaluation", "Integration", "Temporary"],
+    "extensions": ["Audio", "Core", "Evaluation", "Integration", "Inventory", "Temporary"],
     "//": "Cogs to disable from base_extensions",
-    "unload_cogs": []
+    "unload_cogs": ["Automath"],
+
+    "//": "Base color to use in embeds and elements, in hex",
+    "base_color": "ff9900"
 }

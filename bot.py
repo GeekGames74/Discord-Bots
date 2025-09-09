@@ -47,12 +47,15 @@ async def build_bot(path: str):
     bot = Bot(config["prefix"], case_insensitive = True,
                strip_after_prefix = True, activity = Activity(),
                intents = intents) # Default activity and status are set in @on_ready()
+    bot.prefix = config["prefix"]
+    bot.color = int(config.get("base_color", "ffffff"), 16)
     
     for ext in config["extensions"]: # No extension is loaded by default
         name = "Extensions." + ext.removesuffix(".py").capitalize()
         await bot.load_extension(name) # load is asynchronous
     for cog in config["unload_cogs"]: # Disable these cogs
-        await bot.remove_cog(cog.capitalize())
+        result = await bot.remove_cog(cog.capitalize())
+        if result is None: raise Exception(f"Could not unload cog '{cog}'")
     
     TOKEN = data("Secret/" + config["token"], filenotfound = False)
     bot.shutdown = Event() # Signal to terminate the bot
@@ -81,7 +84,7 @@ def toggle_intents(obj, intents):
 
 
 
-def bothelp(): print("TODO: help")
+def bothelp() -> None: print("TODO: help")
 
 
 def names_to_files(*names: str) -> set:
@@ -110,7 +113,7 @@ def names_to_files(*names: str) -> set:
 
 
 
-def start_screen(venv_path: str, to_launch: set):
+def start_screen(venv_path: str, to_launch: set) -> None:
     """
     For each bot to launch:
     - start a screen session,
@@ -139,7 +142,7 @@ def start_screen(venv_path: str, to_launch: set):
         if result.stdout: print(result.stdout)
 
 
-def get_active_bots():
+def get_active_bots() -> set:
     """
     Get all screen sessions starting with Discord-Bot:
     Retreive the bot name(s) in a list

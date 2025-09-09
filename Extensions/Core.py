@@ -50,7 +50,7 @@ _STATUSES = {
 
 
 class Setup(CMDS.Cog):
-    """Basic commands and listeners for all bots"""
+    """Basic commands and listeners for all bots."""
     def __init__(self, bot: Bot):
         self.bot = bot
         self.Reactech = Reactech(bot)
@@ -128,7 +128,7 @@ class Setup(CMDS.Cog):
                 await self.Reactech.reactech_valid(ctx, f"Nick set to `{name}`")
             else: await self.Reactech.reactech_user(ctx, "ℹ️", f"Nick is already `{name}`")
         
-        elif ctx and not await self.bot.is_owner(ctx.author): # Restrict further usage to owner # TODO: auth
+        elif ctx and not await self.bot.is_owner(ctx.author): # Restrict further usage to owner
             await self.Reactech.reactech_user(ctx, "📛", "This command is reserved for the bot owner.")
 
         elif self.bot.user.name != name: # Only change if needed

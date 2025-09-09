@@ -1,0 +1,23 @@
+# Welcome to the Inventory System!
+This system allows you to manage items and inventories for your Discord server.
+
+## Commands:
+
+### Inventory:
+- `inventory view [user] [item]` — View your or another user's inventory (in DMs).
+- `inventory show [user] [item]` — Show your or another user's inventory in the current channel.
+- `inventory give [user] <item> [amount]` — Give items to a user.
+- `inventory remove [user] <item> [amount]` — Remove items from a user.
+- `inventory set [user] <item> [amount]` — Set the quantity of an item for a user.
+- `inventory clear [user] [item]` — Clear a user's inventory or a specific item.
+-# Parameters may be entered in any order.
+-# If <user> is not provided, the command targets your own inventory.
+-# The <amount> parameter is flexible: use a `=`, `+` or `-` at the start, a `%` at the end, decimal numbers...
+
+### Managing Items:
+- `manage_inventory` — Initialize or configure the inventory system.
+- `manage_inventory help` — Show this help message.
+-# Only server administators may use this command
+
+## This bot, extension and these commands are still WIP !
+Report any bug to <@427031555383492609> or in the #bot channel of your server

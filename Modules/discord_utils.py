@@ -57,7 +57,7 @@ class DscConverter:
         """
         # If input is already valid, no problem
         if isinstance(input, int):
-            if input == 0: raise Exception("wtf") # wtf
+            if len(str(input)) < 16: return False
             return input
         if isinstance(input, str):
             # Attempt to convert string of numbers to int
@@ -66,7 +66,7 @@ class DscConverter:
             check = any([input.startswith(i) for i in ["<#", "<&@", "<@"]])
             if check and input.endswith(">"):
                 input = [i for i in input if i.isdigit()]
-                return int("".join(input))
+                return DscConverter.id_to_int("".join(input))
         return False
 
 
@@ -106,7 +106,7 @@ class DscConverter:
             # Otherwise, this means it has to be fetched from CTX
             if len(_TYPES[typename]) != 3: raise TypeError(f"Cannot fetch '{typename}' by ID")
             if not ctx: raise ValueError(f"'{typename}' requires a CTX to be extracted")
-            ctx = self.convertobj(self.bot, ctx, _TYPES[typename][2])
+            ctx = self.convertobj(ctx, _TYPES[typename][2], ctx)
             return getattr(ctx, _TYPES[typename][1])(id)
 
         # Generic test if any scenario above is false

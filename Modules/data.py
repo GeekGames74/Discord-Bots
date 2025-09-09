@@ -72,7 +72,7 @@ def ensure_file(source: str, value: str, read_only: bool|None, filenotfound: boo
 
 
 def explore_struct(struct: dict|list, value = None, *keys: str|int,
-        read_only: bool = False, keynotfound: bool|None = True) -> bool:
+        read_only: bool = True, keynotfound: bool|None = None) -> bool:
     """
     Recursively explore the given structure using the keys.
     value : Default value to return / to write
@@ -183,7 +183,7 @@ def data(source: str, value = None, *keys, read_only: bool|None = True,
         read_only = read_only, keynotfound = keynotfound)
 
 
-def data_txt(path: str, value = None, *keys, read_only: bool = False,
+def data_txt(path: str, value = None, *keys, read_only: bool = True,
         keynotfound: bool|None = True) -> str|bool:
     """
     Data function to read and write from/to .txt files
@@ -221,7 +221,7 @@ def data_txt(path: str, value = None, *keys, read_only: bool = False,
     return out if read_only is None else True
 
 
-def data_json(path: str, value = None, *keys, read_only: bool = False,
+def data_json(path: str, value = None, *keys, read_only: bool = True,
         keynotfound: bool|None = True) -> bool:
     """
     Data function to read and write from/to .json files
