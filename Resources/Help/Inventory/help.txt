@@ -3,21 +3,23 @@ This system allows you to manage items and inventories for your Discord server.
 
 ## Commands:
 
-### Inventory:
+### Base:
 - `inventory view [user] [item]` — View your or another user's inventory (in DMs).
 - `inventory show [user] [item]` — Show your or another user's inventory in the current channel.
 - `inventory give [user] <item> [amount]` — Give items to a user.
 - `inventory remove [user] <item> [amount]` — Remove items from a user.
-- `inventory set [user] <item> [amount]` — Set the quantity of an item for a user.
+- `inventory change [user] <item> [amount]` — Change the quantity of an item for a user.
 - `inventory clear [user] [item]` — Clear a user's inventory or a specific item.
--# Parameters may be entered in any order.
--# If <user> is not provided, the command targets your own inventory.
--# The <amount> parameter is flexible: use a `=`, `+` or `-` at the start, a `%` at the end, decimal numbers...
+- `inventory info <item>` — Get information about a specific item.
+-# Parameters may be entered in any order. Ensure you enter only one of each type (user, item, amount).
+-# If <user> is not provided, the command targets your own inventory. You may otherwise use a @ping or their ID.
+-# The <amount> parameter may be decimal or whole, positive or negative. Use '=', '+', or '-' at the start to indicate how to change the amount (relative or absolute) or '%' to use a percentage of the previous quantity.
 
-### Managing Items:
+### Administration:
 - `manage_inventory` — Initialize or configure the inventory system.
 - `manage_inventory help` — Show this help message.
--# Only server administators may use this command
+-# Only server administrators may use this command
+-# Administration by command is not yet implemented and can only be done through json files by a bot developer.
 
 ## This bot, extension and these commands are still WIP !
-Report any bug to <@427031555383492609> or in the #bot channel of your server
+Report any bug to <@427031555383492609>

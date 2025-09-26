@@ -1,6 +1,6 @@
 """
-Commands and listeners likely on all bots.
-Contains generic setup and managing functions.
+Commands to implement on all bot instances,
+providing basic utility functions for bot admins.
 """
 
 
@@ -19,12 +19,13 @@ from discord.ext.commands.context import Context as CTX
 
 from Modules.basic import least_one, mixmatch, removepunct
 from Modules.reactech import Reactech
+from Modules.data import data
 
 
 
 async def setup(bot: Bot):
     await bot.add_cog(Setup(bot))
-    await bot.add_cog(System(bot))
+    await bot.add_cog(Core(bot))
 
 
 
@@ -50,7 +51,7 @@ _STATUSES = {
 
 
 class Setup(CMDS.Cog):
-    """Basic commands and listeners for all bots."""
+    """Simple commands to administer the bot instance."""
     def __init__(self, bot: Bot):
         self.bot = bot
         self.Reactech = Reactech(bot)
@@ -89,13 +90,13 @@ class Setup(CMDS.Cog):
 
         if least_one(action, ['gam', 'play']):
             activity = DSC.Game(name = txt)
-        if least_one(action, ['stream', 'twitch']):
+        elif least_one(action, ['stream', 'twitch']):
             activity = DSC.Streaming(name = txt, url = url)
-        if least_one(action, ['listen']):
+        elif least_one(action, ['listen']):
             activity = Activity(type = DSC.ActivityType.listening, name = txt)
-        if least_one(action, ['watch', 'video']):
+        elif least_one(action, ['watch', 'video']):
             activity = Activity(type = DSC.ActivityType.watching, name = txt)
-        if least_one(action, ['def', 'serv', 'bas', 'main']):
+        elif least_one(action, ['def', 'serv', 'bas', 'main']):
             activity = "Default"
         
         if activity is None: # Void
@@ -110,77 +111,34 @@ class Setup(CMDS.Cog):
         return activity
     
 
-
-    @CMDS.command(name = "rename", aliases = mixmatch(
-            ["change", "edit", "modify", "set", "reset"],
-            ["name", "username"], keeporder = True))
-    async def rename(self, ctx: CTX, *, name: str) -> None:
-        """
-        Change the client nickname on the server.
-        If executed outside a guild, permanently sets the username (bot owner only).
-        """
-        if ctx and ctx.guild: # First use (change nick)
-            if not ctx.author.guild_permissions.manage_nicknames:
-                await self.Reactech.reactech_user(ctx, "⛔",
-                        "You need the `Manage nicknames` permission to use this command.")
-            elif ctx.guild.me.display_name != name: # Only change if needed
-                await ctx.guild.me.edit(nick = name)
-                await self.Reactech.reactech_valid(ctx, f"Nick set to `{name}`")
-            else: await self.Reactech.reactech_user(ctx, "ℹ️", f"Nick is already `{name}`")
-        
-        elif ctx and not await self.bot.is_owner(ctx.author): # Restrict further usage to owner
-            await self.Reactech.reactech_user(ctx, "📛", "This command is reserved for the bot owner.")
-
-        elif self.bot.user.name != name: # Only change if needed
-                if not await self.Reactech.react_confirm(ctx, "❌", "✅",
-                    "This will rename the bot globally. Are you sure?"): return
-                try: # Test for Discord ratelimit
-                    await self.bot.user.edit(username = name)
-                    if ctx: await self.Reactech.reactech_valid(ctx, f"Name set to `{name}`")
-                except DSC.errors.HTTPException as e: # If ratelimited
-                    if e.status == 400 and e.code == 50035 and ctx:
-                        await self.Reactech.reactech_user(
-                            ctx, "🚫", "Could not set name; Too many name changes.")
-        elif ctx: await self.Reactech.reactech_user(ctx, "ℹ️", f"Name is already `{name}`")
-
-
-
     @CMDS.Cog.listener()
     async def on_ready(self):
         print(f"{self.bot.user.name.capitalize()} is ready")
         await self.activity(None, "Online")
         await self.activity(None, "Default")
+    
+
+    @CMDS.Cog.listener()
+    async def on_guild_leave(self, guild: DSC.Guild):
+        """Remove server data when the bot leaves a guild."""
+        servers = data("Data/servers.json", read_only=True)
+        if str(guild.id) in servers:
+            del servers[str(guild.id)]
+            data("Data/servers.json", servers, read_only=False)
 
 
 
 ##################################################
-# SYSTEM
+# Core
 ##################################################
 
 
 
-class System(CMDS.Cog):
-    """System commands, used to manage bot instances."""
+class Core(CMDS.Cog):
+    """Core commands, used to manage bot instances."""
     def __init__(self, bot: Bot):
         self.bot = bot
         self.Reactech = Reactech(bot)
-
-
-    @CMDS.command(name = "ping", aliases = ["!", "latency"])
-    async def ping(self, ctx: CTX) -> int:
-        """Returns the current latency (in ms)."""
-        latency = int(self.bot.latency*1000)
-        if ctx: await ctx.send("pong! " + str(latency) + "ms")
-        return latency
-
-    
-    @CMDS.command(name = "url", aliases = mixmatch(["join", "invite", ""],
-            ["url", "link"], remove="url"))
-    async def url(self, ctx: CTX) -> str:
-        """Get the invite url for the bot."""
-        url = f"https://discord.com/oauth2/authorize?client_id={self.bot.user.id}&permissions=0&scope=bot%20applications.commands"
-        if ctx: await ctx.send(f"[Add this bot to your server]({url})")
-        return url
 
 
     @CMDS.command(name = "kill", aliases = mixmatch(["kill", "end", "destroy", "exit", "terminate"],

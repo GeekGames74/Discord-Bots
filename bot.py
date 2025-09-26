@@ -20,6 +20,7 @@ from subprocess import run, PIPE
 from asyncio import gather, Event, create_task
 from asyncio import run as asyncrun
 
+from Extensions.Common import get_prefix
 from Modules.data import data, path_from_root
 from Modules.basic import makeiterable, correspond, least_one
 
@@ -44,7 +45,7 @@ async def build_bot(path: str):
     config = data("Resources/Configs/" + path, filenotfound = False)
     base_intent = getattr(Intents(), config["base_intents"])
     intents = toggle_intents(base_intent(), config["target_intents"])
-    bot = Bot(config["prefix"], case_insensitive = True,
+    bot = Bot(get_prefix, case_insensitive = True,
                strip_after_prefix = True, activity = Activity(),
                intents = intents) # Default activity and status are set in @on_ready()
     bot.prefix = config["prefix"]

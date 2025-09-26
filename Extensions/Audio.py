@@ -424,7 +424,7 @@ class Sounds(CMDS.Cog):
             f"Paused {source} in {vc.channel.mention}.")
 
 
-    @CMDS.command(name = "loop", aliases = mixmatch(["loop", "repeat"],
+    @CMDS.command(name = "loop", aliases = mixmatch(["loop", "repeat", "looping"],
             ["", "sound", "sounds", "audio"], remove="loop"))
     async def loop(self, ctx: CTX, value: str = None) -> None:
         """Toogle audio looping on current/next source."""

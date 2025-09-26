@@ -10,7 +10,7 @@
     "target_intents": ["message_content", "members"],
 
     "//": "Extensions (from /Extensions/.) to enable",
-    "extensions": ["Audio", "Core", "Evaluation", "Integration", "Inventory", "Temporary"],
+    "extensions": ["Audio", "Common", "Evaluation", "Integration", "Inventory", "System", "Temporary"],
     "//": "Cogs to disable from base_extensions",
     "unload_cogs": ["Automath"],
 

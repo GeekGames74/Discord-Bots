@@ -128,6 +128,20 @@ def yes_no(txt: str) -> bool:
     return None
 
 
+def format_number(n: int|float|str) -> str:
+    """Format a number with 10^3 unit name (thousand, million, billion, trillion)."""
+    if isinstance(n, str): # Convert to number
+        try: n = float(n) if "." in n else int(n)
+        except ValueError: return n
+    unit = 0
+    while abs(n) >= 1000:
+        n /= 1000
+        unit += 1
+    word = {0: "", 1: " thousand", 2: " million", 3: " billion", 4: " trillion"}
+    plural = "" if unit == 0 or abs(n) == 1 else "s"
+    return f"{round(n)}{word[unit]}{plural}"
+
+
 
 ##################################################
 # MAIN
