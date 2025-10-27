@@ -11,9 +11,7 @@ Local formats (txt, json, local bd) or external (bd, endpoints...).
 
 
 
-from os import path as os_path
-from os import sep as os_sep
-from os import makedirs
+from os import path as os_path, sep as os_sep, makedirs
 from json import load, dump
 
 
@@ -166,8 +164,8 @@ def data(source: str, value = None, *keys, read_only: bool|None = True,
     - False : Raise KeyError
 
     Dictionary structure expect str keys, list expect int indicies
-    Json file treats the content as a proper OOP structure
-    Txt file treats the data as an array (per line) in terms of keys,
+    JSON file treats the content as a proper OOP structure
+    TXT file treats the data as an array (per line) in terms of keys,
     but will always return the requested value as a string
     """
     format = source.split(".")[-1] # Get the file extension
@@ -181,6 +179,7 @@ def data(source: str, value = None, *keys, read_only: bool|None = True,
         read_only = read_only, keynotfound = keynotfound)
     elif format == "txt": return data_txt(path, value, *keys,
         read_only = read_only, keynotfound = keynotfound)
+    else: raise NotImplementedError(f"Data format '{format}' is not yet implemented")
 
 
 def data_txt(path: str, value = None, *keys, read_only: bool = True,

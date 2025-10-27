@@ -77,6 +77,7 @@ _ITEM_DEFAULTS = { # Default item structure
 ##################################################
 
 
+
 async def log_get_channel(ctx: CTX, logs: dict, action: str, self: bool = False) -> DSC.TextChannel|None:
     """Get the log channel for a given action, or None if not set."""
     if action not in logs:
@@ -144,7 +145,7 @@ async def log_deny(ctx: CTX, logs: dict, msg: str, user: DSC.User) -> None:
     # If the command targeted someone else, add footer
     if ctx.author != user:
         embed.set_footer(
-            text=f"Command targeted `{user.display_name}`.",
+            text=f"Command targeted '{user.display_name}'.",
             icon_url=user.avatar.url if user.avatar else None
         )
     return await channel.send(embed=embed)
@@ -165,7 +166,7 @@ async def log_change(ctx: CTX, logs: dict, item: str,
     )
     if ctx.author != user:
         embed.set_footer(
-            text=f"Executed by `{ctx.author.display_name}`.",
+            text=f"Executed by '{ctx.author.display_name}'.",
             icon_url=ctx.author.avatar.url if ctx.author.avatar else None
         )
     return await channel.send(embed=embed)
@@ -199,7 +200,7 @@ async def log_action(
     embed = log_create_embed(ctx, action, txt[0], txt[2] if item else txt[1], user)
     if ctx.author != user:
         embed.set_footer(
-            text=f"Executed by `{ctx.author.display_name}`.",
+            text=f"Executed by '{ctx.author.display_name}'.",
             icon_url=ctx.author.avatar.url if ctx.author.avatar else None
         )
     return await channel.send(embed=embed)

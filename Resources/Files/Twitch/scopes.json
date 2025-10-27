@@ -1,0 +1,186 @@
+{
+    "Analytics": {
+        "name": "Analytics",
+        "emoji": "📊",
+        "description": "Access to developer analytics data",
+        "hidden_scopes": [
+            "analytics:read:extensions",
+            "analytics:read:games"
+        ],
+        "hidden": true
+    },
+    "Channel Read-Only": {
+        "name": "Channel Read-Only",
+        "emoji": "📺",
+        "description": "Read access to channel data.",
+        "scopes": [
+            "channel:read:redemptions"
+        ],
+        "hidden_scopes": [
+            "bits:read",
+            "channel:read:ads",
+            "channel:read:charity",
+            "channel:read:goals",
+            "channel:read:guest_star",
+            "channel:read:hype_train",
+            "channel:read:polls",
+            "channel:read:predictions",
+            "channel:read:editors",
+            "channel:read:subscriptions",
+            "channel:read:vips"
+        ]
+    },
+    "Channel Actions": {
+        "name": "Channel Actions",
+        "emoji": "🎚️",
+        "description": "Perform actions on the channel.",
+        "scopes": [
+            "channel:bot"
+        ],
+        "extends": ["Channel Read-Only"],
+        "hidden_scopes": [
+            "channel:edit:commercial",
+            "channel:manage:ads",
+            "channel:manage:clips",
+            "channel:manage:polls",
+            "channel:manage:predictions",
+            "channel:manage:raids",
+            "channel:moderate",
+            "clips:edit"
+        ]
+    },
+    "Channel Manage": {
+        "name": "Channel Manage",
+        "emoji": "🎛️",
+        "description": "Manage channel settings.",
+        "hidden_scopes": [
+            "channel:manage:broadcast",
+            "channel:manage:extensions",
+            "channel:manage:guest_star",
+            "channel:manage:moderators",
+            "channel:manage:schedule",
+            "channel:manage:videos",
+            "channel:manage:vips"
+        ],
+        "extends": ["Channel Read-Only", "Channel Actions"],
+        "hidden": true
+    },
+    "Moderation Read-Only": {
+        "name": "Moderation Read-Only",
+        "emoji": "🛡️",
+        "description": "Read access to moderation data.",
+        "hidden_scopes": [
+            "moderation:read",
+            "moderator:read:automod_settings",
+            "moderator:read:banned_users",
+            "moderator:read:blocked_terms",
+            "moderator:read:chat_messages",
+            "moderator:read:chat_settings",
+            "moderator:read:chatters",
+            "moderator:read:followers",
+            "moderator:read:guest_star",
+            "moderator:read:moderators",
+            "moderator:read:shield_mode",
+            "moderator:read:shoutouts",
+            "moderator:read:suspicious_users",
+            "moderator:read:unban_requests",
+            "moderator:read:vips",
+            "moderator:read:warnings"
+        ],
+        "hidden": true
+    },
+    "Moderation Actions": {
+        "name": "Moderation Actions",
+        "emoji": "🗡️",
+        "description": "Perform moderation actions.",
+        "hidden_scopes": [
+            "editor:manage:clips",
+            "moderator:manage:announcements",
+            "moderator:manage:automod",
+            "moderator:manage:banned_users",
+            "moderator:manage:chat_messages",
+            "moderator:manage:guest_star",
+            "moderator:manage:shield_mode",
+            "moderator:manage:shoutouts",
+            "moderator:manage:unban_requests",
+            "moderator:manage:warnings"
+        ],
+        "extends": ["Moderation Read-Only"],
+        "hidden": true
+    },
+    "Moderation Manage": {
+        "name": "Moderation Manage",
+        "emoji": "⚔️",
+        "description": "Manage moderation settings.",
+        "hidden_scopes": [
+            "moderator:manage:automod_settings",
+            "moderator:manage:blocked_terms",
+            "moderator:manage:chat_settings"
+        ],
+        "extends": ["Moderation Read-Only", "Moderation Actions"],
+        "hidden": true
+    },
+    "User Read-Only": {
+        "name": "User Read-Only",
+        "emoji": "👀",
+        "description": "Read access to user data.",
+        "hidden_scopes": [
+            "user:read:blocked_users",
+            "user:read:broadcast",
+            "user:read:chat",
+            "user:read:emotes",
+            "user:read:follows",
+            "user:read:subscriptions",
+            "user:read:whispers"
+        ],
+        "hidden": true
+    },
+    "User Actions": {
+        "name": "User Actions",
+        "emoji": "✋",
+        "description": "Perform actions on user data.",
+        "hidden_scopes": [
+            "user:bot",
+            "user:manage:blocked_users",
+            "user:manage:chat_color",
+            "user:manage:whispers",
+            "user:read:moderated_channels",
+            "user:write:chat"
+        ],
+        "extends": ["User Read-Only"],
+        "hidden": true
+    },
+    "User Manage": {
+        "name": "User Manage",
+        "emoji": "👤",
+        "description": "Manage user account.",
+        "hidden_scopes": [
+            "user:edit",
+            "user:edit:broadcast",
+            "user:read:email"
+        ],
+        "extends": ["User Read-Only", "User Actions"],
+        "hidden": true
+    },
+    "All": {
+        "name": "All",
+        "emoji": "👑",
+        "description": "Full access to all resources.",
+        "hidden_scopes": [
+            "channel:read:stream_key"
+        ],
+        "extends": [
+            "Analytics",
+            "Channel Read-Only",
+            "Channel Actions",
+            "Channel Manage",
+            "Moderation Read-Only",
+            "Moderation Actions",
+            "Moderation Manage",
+            "User Read-Only",
+            "User Actions",
+            "User Manage"
+        ],
+        "hidden": true
+    }
+}

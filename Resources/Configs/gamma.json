@@ -1,4 +1,6 @@
 {
+    "//": "Name of the instance",
+    "name": "Gamma",
     "//": "Default command prefix for the instance",
     "prefix": "/",
     "//": "Token file name/location, relative to /Secret/.",
@@ -10,10 +12,19 @@
     "target_intents": ["message_content", "members"],
 
     "//": "Extensions (from /Extensions/.) to enable",
-    "extensions": ["Audio", "Common", "Evaluation", "Integration", "Inventory", "System", "Temporary"],
+    "extensions": ["Audio", "Common", "Evaluation", "Integration", "Inventory", "System", "Temporary", "Twitch", "Webserver"],
     "//": "Cogs to disable from base_extensions",
     "unload_cogs": ["Automath"],
 
     "//": "Base color to use in embeds and elements, in hex",
-    "base_color": "ff9900"
+    "base_color": "ff9900",
+
+    "//": "Database connection string file, relative to /Secret/.",
+    "database": "gamma_db.txt",
+    "//": "Schema to use in the database for bot-specific tables",
+    "schema": "gamma",
+    "//": "Port used for the bot's webserver",
+    "port": 6861,
+    "//": "Credentials for Twitch, first line is client ID, second line is client secret",
+    "twitch": "twitch.txt"
 }

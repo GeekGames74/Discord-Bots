@@ -19,6 +19,7 @@ from discord.ext.commands.context import Context as CTX
 from asyncio import wait_for, to_thread, TimeoutError
 from time import time
 
+from Extensions.Common import get_prefix
 from Modules.reactech import Reactech
 from Modules.logic import main as main_math
 from Modules.logic import get_args, is_num, _ARG_TIMEOUT, noresolve_stack
@@ -241,9 +242,9 @@ class Automath(CMDS.Cog):
 
     @CMDS.Cog.listener()
     async def on_message(self, msg: DSC.message.Message) -> None:
-        if msg.content.startswith(self.bot.command_prefix): return # If it's not a bot command
         if msg.author.bot: return # And not sent by a bot
         if msg.mentions or msg.role_mentions: return # No mentions
+        if msg.content.startswith(get_prefix(self.bot, msg)[0]): return # If it's not a bot command
         if len(msg.content) > 100: return # Don't treat big messages
         if len(msg.content) <= 1: return # Don't treat small messages
         await main(self, msg, msg.content, True)

@@ -19,8 +19,8 @@ from sys import argv
 from subprocess import run, PIPE
 from asyncio import gather, Event, create_task
 from asyncio import run as asyncrun
+from asyncpg import create_pool
 
-from Extensions.Common import get_prefix
 from Modules.data import data, path_from_root
 from Modules.basic import makeiterable, correspond, least_one
 
@@ -39,6 +39,8 @@ async def build_bot(path: str):
     """
     from discord.ext.commands.bot import Bot
     from discord import Intents, Activity
+    from Modules.Twitch.eventsub import EventSubManager
+    from Extensions.Common import get_prefix
     print(f"Starting bot '{path}'")
     
     if not path.endswith(".json"): path += ".json"
@@ -48,9 +50,17 @@ async def build_bot(path: str):
     bot = Bot(get_prefix, case_insensitive = True,
                strip_after_prefix = True, activity = Activity(),
                intents = intents) # Default activity and status are set in @on_ready()
-    bot.prefix = config["prefix"]
-    bot.color = int(config.get("base_color", "ffffff"), 16)
     
+    bot.name = config["name"]
+    bot.prefix = config["prefix"]
+    bot.port = config.get("port")
+    bot.color = int(config.get("base_color", "ffffff"), 16)
+    connection_string = data("Secret/" + config["database"], filenotfound = False)
+    bot.db = await create_pool(dsn = connection_string)
+    bot.schema = config.get("schema", "public") # bot-specific schema in the db
+    twitch_config = data("Secret/" + config.get("twitch"), filenotfound = None)
+    await EventSubManager.create(bot, twitch_config)
+
     for ext in config["extensions"]: # No extension is loaded by default
         name = "Extensions." + ext.removesuffix(".py").capitalize()
         await bot.load_extension(name) # load is asynchronous
@@ -62,7 +72,9 @@ async def build_bot(path: str):
     bot.shutdown = Event() # Signal to terminate the bot
     create_task(bot.start(TOKEN, reconnect = True))
     await bot.shutdown.wait() # When the shutdown signal is sent
+    await bot.db.close()
     await bot.close()
+    print(f"{bot.name} has shut down.")
     return bot
 
 
@@ -85,7 +97,12 @@ def toggle_intents(obj, intents):
 
 
 
-def bothelp() -> None: print("TODO: help")
+def bothelp() -> None:
+    """Print help message and exit."""
+    print("Usage: python3 bot.py <bot_name> [<bot_name2> ...] [--no-screen]")
+    print("If no bot name is given, you will be prompted to enter one.")
+    print("If --no-screen is given, the bot(s) will run in the current console.")
+    print("Otherwise, on Linux, each bot will run in its own screen session.")
 
 
 def names_to_files(*names: str) -> set:

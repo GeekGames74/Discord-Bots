@@ -17,15 +17,19 @@ from discord.ext import commands as CMDS
 from discord.ext.commands.bot import Bot
 from discord.ext.commands.context import Context as CTX
 
+from asyncpg import Pool
+from io import StringIO
+
 from Modules.basic import least_one, mixmatch, removepunct
 from Modules.reactech import Reactech
 from Modules.data import data
-
+from Modules.Twitch.eventsub import EventSubManager
 
 
 async def setup(bot: Bot):
     await bot.add_cog(Setup(bot))
     await bot.add_cog(Core(bot))
+    await bot.add_cog(Database(bot))
 
 
 
@@ -113,7 +117,6 @@ class Setup(CMDS.Cog):
 
     @CMDS.Cog.listener()
     async def on_ready(self):
-        print(f"{self.bot.user.name.capitalize()} is ready")
         await self.activity(None, "Online")
         await self.activity(None, "Default")
     
@@ -141,6 +144,11 @@ class Core(CMDS.Cog):
         self.Reactech = Reactech(bot)
 
 
+    @CMDS.Cog.listener()
+    async def on_ready(self):
+        print(f"{self.bot.name} is ready.")
+        
+
     @CMDS.command(name = "kill", aliases = mixmatch(["kill", "end", "destroy", "exit", "terminate"],
             ["", "bot", "task", "script", "instance", "yourself"], keeporder = True, remove = "kill"))
     @CMDS.is_owner() # /kill-yourself is now a valid command (yipee ..?)
@@ -148,12 +156,72 @@ class Core(CMDS.Cog):
         """Save and quit the bot instance."""
         # Logging and user response
         if ctx: await ctx.message.add_reaction("✅")
-        print(f"{self.bot.user.name.capitalize()} is shutting down")
+        print(f"{self.bot.name} is shutting down.")
         # Disconnect from voicechannels
         for vc in self.bot.voice_clients:
             vc.playing = None
             if vc.is_playing(): vc.stop()
             await vc.disconnect(force = True)
+        manager = EventSubManager.get(self.bot)
+        if manager is not None:
+            await manager.stop()
         # Save cog: [async] def cog_unload(self):
         # Save ext: [async] def teardown(bot):
         self.bot.shutdown.set()
+
+
+
+##################################################
+# Database
+##################################################
+
+
+
+class Database(CMDS.Cog):
+    """Database management commands."""
+    def __init__(self, bot: Bot):
+        self.bot = bot
+        self.Reactech = Reactech(bot)
+        self.db: Pool = bot.db
+
+
+    @CMDS.command(name = "sql", aliases = ["postgres", "query", "db", "database"])
+    @CMDS.is_owner()
+    async def sql(self, ctx: CTX, *, query: str) -> None:
+        """Execute an SQL query on the connected database."""
+        if ctx.guild is not None:
+            return await self.Reactech.reactech_user(ctx, "🚫", "This command can only be used in DMs.")
+        query = query.strip("` ") # Remove code block formatting
+        try: # Acquire a connection from the pool and start a transaction
+            async with self.db.acquire() as conn:
+                # Handle SELECT queries (fetch results)
+                if query.lower().startswith("select"):
+                    records = await conn.fetch(query)
+                    if not records: # No results found
+                        return await self.Reactech.reactech_valid(ctx, "Query executed successfully (no results).")
+                    headers = records[0].keys()
+                    rows = [list(map(str, record.values())) for record in records]
+                    # Format results as a simple table
+                    result = " | ".join(headers) + "\n" + "\n".join([" | ".join(row) for row in rows])
+                else: # Handle non-SELECT queries (INSERT, UPDATE, DELETE, etc.)
+                    result = await conn.execute(query)
+        except Exception as e: # Error handling and feedback
+            result = e
+        # Prepare response based on success or failure
+        emoji = "✅" if not isinstance(result, Exception) else "❌"
+        file = None if len(str(result)) <= 1950 else DSC.File(
+            StringIO(str(result)), filename="result.txt" if emoji == "✅" else "error.txt")
+        # Response depends on success and length of result
+        match (emoji, file is None):
+            case ("✅", True):
+                await ctx.reply(f"✅ Query executed successfully:\n```\n{result}\n```")
+                await self.Reactech.reactech_valid(ctx, f"Query executed successfully.")
+            case ("✅", False):
+                await ctx.reply(f"✅ Query executed successfully.", file=file)
+                await self.Reactech.reactech_valid(ctx, f"Query executed successfully. Result saved to file.")
+            case ("❌", True):
+                await ctx.reply(f"❌ Error executing query:\n```\n{result}\n```")
+                await self.Reactech.reactech_user(ctx, emoji, f"Error executing query.")
+            case ("❌", False):
+                await ctx.reply(f"❌ Error executing query.", file=file)
+                await self.Reactech.reactech_user(ctx, emoji, f"Error executing query. Details saved to file.")

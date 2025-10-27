@@ -444,7 +444,7 @@ class Inventory_manage(CMDS.Cog):
             if not inventory:
                 data("Data/servers.json", SERVER_DEFAULTS, str(ctx.guild.id), "inventory", read_only=False)
             if args and args[0].lower() in WORDS["help"]:
-                msg += data("Resources/Help/Inventory/help.txt", filenotfound=False)
+                msg += data("Resources/Files/Inventory/help.txt", filenotfound = False)
             else:
                 msg += "Inventory system has been initialized on this server.\n" + \
                     "Use `{prefix}manage_inventory help` to see how to configure it."

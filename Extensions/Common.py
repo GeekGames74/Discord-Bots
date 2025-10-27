@@ -33,7 +33,7 @@ async def setup(bot: Bot):
 
 
 
-def get_prefix(bot_ctx: Bot|CTX, message: DSC.Message = None) -> str:
+def get_prefix(bot_ctx: Bot|CTX, message: DSC.Message = None) -> str|list[str]:
     """Return the bot prefix for the given message."""
     # Optionally extract the bot from the context
     bot = bot_ctx if isinstance(bot_ctx, Bot) else bot_ctx.bot

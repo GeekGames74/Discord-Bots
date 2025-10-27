@@ -16,7 +16,7 @@ import discord as DSC
 from discord.ext.commands import Bot as Bot
 from discord.ext.commands.context import Context as CTX
 
-from asyncio import TimeoutError, CancelledError, run, gather
+from asyncio import TimeoutError, CancelledError, gather
 
 from Modules.discord_utils import DscConverter
 

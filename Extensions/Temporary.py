@@ -179,7 +179,7 @@ class Scheduling(CMDS.Cog):
             except CancelledError: return
             
             # On checkmark reaction, fetch the message again to get up-to-date reactions
-            try: message = await ctx.author.dm_channel.fetch_message(ask_message.id)
+            try: message = await ask_message.fetch()
             except Exception: return await self.Reactech.reactech_user(ctx,
                 "❓", "Could not fetch the schedule message.")
             # Determine which slots to keep based on reactions with at least 2 counts (bot and user)

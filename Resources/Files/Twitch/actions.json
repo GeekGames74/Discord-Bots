@@ -1,0 +1,98 @@
+{
+    "eventsub_add": {
+        "url": "eventsub/subscriptions",
+        "method": "POST",
+        "headers": {
+            "Client-ID": "str",
+            "Authorization": "str"
+        },
+        "json": {
+            "type": "str",
+            "version": "1",
+            "condition": "dict",
+            "transport": {
+                "method": "websocket",
+                "session_id": "str"
+            }
+        }
+    },
+    "eventsub_remove": {
+        "url": "eventsub/subscriptions",
+        "method": "DELETE",
+        "headers": {
+            "Client-ID": "str",
+            "Authorization": "str"
+        },
+        "params": {
+            "id": "str"
+        }
+    },
+    "user": {
+        "url": "users",
+        "method": "GET",
+        "headers": {
+            "Client-ID": "str",
+            "Authorization": "str"
+        },
+        "params": {
+            "id": "str",
+            "login": "str"
+        }
+    },
+    "oauth_token": {
+        "url": "https://id.twitch.tv/oauth2/token",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "json": {
+            "client_id": "str",
+            "client_secret": "str",
+            "code": "str",
+            "grant_type": "authorization_code",
+            "redirect_uri": "str"
+        }
+    },
+    "validate_token": {
+        "url": "https://id.twitch.tv/oauth2/validate",
+        "method": "GET",
+        "headers": {
+            "Authorization": "str"
+        }
+    },
+    "refresh_token": {
+        "url": "https://id.twitch.tv/oauth2/token",
+        "method": "POST",
+        "json": {
+            "client_id": "str",
+            "client_secret": "str",
+            "refresh_token": "str",
+            "grant_type": "refresh_token"
+        }
+    },
+    "client_credentials": {
+        "url": "https://id.twitch.tv/oauth2/token",
+        "method": "POST",
+        "params": {
+            "client_id": "str",
+            "client_secret": "str",
+            "grant_type": "client_credentials"
+        }
+    },
+    "send_message": {
+        "url": "chat/messages",
+        "method": "POST",
+        "headers": {
+            "Client-ID": "str",
+            "Authorization": "str"
+        },
+        "json": {
+            "broadcaster_id": "str",
+            "sender_id": "str",
+            "message": "str"
+        },
+        "scopes": [
+            "channel:bot"
+        ]
+    }
+}

@@ -14,7 +14,7 @@ from asyncio import TimeoutError
 from time import time
 from Modules.data import data
 from Modules.basic import isiterable, flatten
-import math ; import random
+import math, random
 
 
 
@@ -35,7 +35,8 @@ def is_num(txt: str): return all([c in nums() or c == "." for c in txt])
 def symb_comma() -> set: return set(_SYMBOLS.keys()).union({","})
 
 
-_LOGIC_FUNC = {} ; _SYMBOLS = {} ; _NAMES = {}
+_LOGIC_FUNC = data("Resources/Files/Evaluation/logic.json", filenotfound = False)
+_SYMBOLS = {} ; _NAMES = {}
 _MID = [{} for i in "x"*6]
 _AFTER = {} ; _NO_RESOLVE = set()
 
@@ -61,9 +62,7 @@ _ALLOW = _ALLOW.union(nums())
 
 def set_globals() -> None:
     """Set global variables for the module"""
-    global _SYMBOLS ; global _NAMES ; global _LOGIC_FUNC
-    # Get the function data from the json file (raise error if doesn't exist)
-    _LOGIC_FUNC = data("Resources/Files/logic.json", filenotfound = False)
+    global _SYMBOLS ; global _NAMES
 
     for key, value in _LOGIC_FUNC.items():
         _NAMES[key] = value["aliases"]

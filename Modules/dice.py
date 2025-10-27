@@ -396,8 +396,8 @@ def dice_end(dice: Dice, txt: str, i: int, scuff: bool = False) -> bool:
     if i >= len(txt)-1: return True
 
     # Test if is a dice arg '@!^vl#xpn~-?'
-    if txt[i+1] in _DICE_ARGS or \
-        (scuff and txt[i+1] == "?") \
+    if (txt[i+1] in _DICE_ARGS or \
+        (scuff and txt[i+1] == "?")) \
         and dice.sides is None:
             # No more params after dice.sides is set
             dice.set_param(txt[i+1])
