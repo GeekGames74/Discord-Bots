@@ -3,3 +3,4 @@ asyncio>=4.0.0
 nest_asyncio>=1.6.0
 PyNaCl>=1.6.0
 asyncpg>=0.30.0
+websockets>=15.0.1

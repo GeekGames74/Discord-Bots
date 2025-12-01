@@ -176,12 +176,25 @@ class Twitch_oauth(Cog):
                 user_scopes.update(SCOPES[category].get("hidden_scopes", []))
 
         # Message specifying that the last login request has been invalidated
-        txt = "" if user.state is None else "The previously requested login has been cancelled.\n"
+        author = None if user.state is None else "The previously requested login has been cancelled."
         await user.create_state(self.bot.db) # Create new state and save to DB
-        # Send the login URL
-        await message.reply(f"{txt}Authorize the bot using your Twitch account using [this link](" + \
-            user.oauth_url(self.TwitchManager.app.twitch_id, self.bot.port, user_scopes) + \
-                f").\nLink expiry: <t:{int(DSC.utils.utcnow().timestamp()) + _LOGIN_WAIT_TIMEOUT}:R>.")
+        # Send the login URL using an embed
+        # While discord limits message length to 2000 characters,
+        # embed description supports up to 4096 characters,
+        # ensuring the URL fits within that limit.
+        url = user.oauth_url(self.TwitchManager.app.twitch_id, self.bot.port, user_scopes)
+        link = f"Authorize the bot using this link: [id.twitch.tv/oauth2/authorize]({url})"
+        link_embed = DSC.Embed( # Create the embed
+            title="Twitch oAuth Login",
+            # URL must be at most 2000 characters (discord limitation)
+            url=url if len(url) <= 2000 else None,
+            description=link,
+            color=0x9146ff,
+            timestamp=DSC.utils.utcnow()
+        )
+        if author is not None: link_embed.set_author(name=author)
+        link_embed.set_footer(text="This link will expire in 10 minutes.")
+        await message.reply(embed=link_embed)
 
 
     async def handle_callback(self, request: web.Request) -> web.Response:

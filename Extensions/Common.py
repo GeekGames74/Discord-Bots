@@ -69,7 +69,7 @@ class Info(CMDS.Cog):
         """Returns the current latency (in ms)."""
         latency = int(self.bot.latency*1000)
         # Only send a message if invoked in a context
-        if ctx: await ctx.send("pong! " + str(latency) + "ms")
+        if ctx: await ctx.reply("pong! " + str(latency) + "ms")
         return latency
 
     
@@ -108,7 +108,7 @@ class Custom(CMDS.Cog):
         if ctx and ctx.guild: # First use (change nick)
             if not ctx.author.guild_permissions.manage_nicknames:
                 await self.Reactech.reactech_user(ctx, "⛔",
-                        "You need the `Manage nicknames` permission to use this command.")
+                    "You need the `Manage nicknames` permission to use this command.")
             elif ctx.guild.me.display_name != name: # Only change if needed
                 await ctx.guild.me.edit(nick = name)
                 await self.Reactech.reactech_valid(ctx, f"Nick set to `{name}`")

@@ -19,7 +19,6 @@ from sys import argv
 from subprocess import run, PIPE
 from asyncio import gather, Event, create_task
 from asyncio import run as asyncrun
-from asyncpg import create_pool
 
 from Modules.data import data, path_from_root
 from Modules.basic import makeiterable, correspond, least_one
@@ -41,6 +40,7 @@ async def build_bot(path: str):
     from discord import Intents, Activity
     from Modules.Twitch.eventsub import EventSubManager
     from Extensions.Common import get_prefix
+    from asyncpg import create_pool
     print(f"Starting bot '{path}'")
     
     if not path.endswith(".json"): path += ".json"

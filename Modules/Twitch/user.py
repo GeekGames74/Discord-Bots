@@ -274,12 +274,12 @@ class TwitchUser:
     def redirect_uri(cls, port: str = None) -> str:
         """Get the redirect URI for OAuth."""
         domain = data("Secret/domain.json", # Get the domain from Secrets/
-            {"name": "localhost", "ip": "127.0.0.1", "port": "8080"},
+            {"name": "localhost", "ip": "127.0.0.1", "api": ":", "port": "6860"},
             filenotfound = None) # Default to localhost if not found
         # Determine protocol based on domain (localhost -> http, else https)
         protocol = "http" if domain["name"] == "localhost" or domain["ip"] == "127.0.0.1" else "https"
         # http[s]://domain:port/twitch
-        return f"{protocol}://{domain['name']}:{port or domain['port']}/twitch"
+        return f"{protocol}://{domain['name']}{domain['api']}{port or domain['port']}/twitch"
 
 
     def oauth_url(self, client_id: str, port: str = None, scopes: set[str] = None) -> str|None:
